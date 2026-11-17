@@ -274,7 +274,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
     </div>
   </section>
 </main>
-<footer><b>Versión 6</b> · Clima Vivo Perú · aplicativo académico de N. Fabián Huaranga · Ingeniería Agrícola, UNALM · Datos abiertos de NASA, Copernicus/ECMWF, Open‑Meteo (CC BY 4.0) y ENFEN.</footer>
+<footer><b>Versión 7</b> · Clima Vivo Perú · aplicativo académico de N. Fabián Huaranga · Ingeniería Agrícola, UNALM · Datos abiertos de NASA, Copernicus/ECMWF, Open‑Meteo (CC BY 4.0) y ENFEN.</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -292,7 +292,7 @@ const ymd = d => iso(d).replaceAll('-','');
 const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
 const MON = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-const fmtDay = s => { const [y,m,d]=s.split('-'); return `${+d} ${MES[+m-1]}`; };
+const fmtDay = s => { if(!s) return '—'; const [y,m,d]=String(s).split('-'); return `${+d} ${MES[+m-1]}`; };
 const mean = a => { const v=a.filter(x=>x!=null&&!isNaN(x)); return v.length? v.reduce((s,x)=>s+x,0)/v.length : NaN; };
 const sum = a => a.filter(x=>x!=null&&!isNaN(x)).reduce((s,x)=>s+x,0);
 const pct = (arr,p) => { const v=arr.filter(x=>x!=null&&!isNaN(x)).sort((a,b)=>a-b); if(!v.length) return NaN; const i=(v.length-1)*p, lo=Math.floor(i), hi=Math.ceil(i); return v[lo]+(v[hi]-v[lo])*(i-lo); };
@@ -406,11 +406,14 @@ async function renderResumen(){
   let fc, air, river=null;
   try{ [fc, air] = await Promise.all([loadForecast(), loadAir().catch(()=>null)]); }catch(e){ fail(sem,e); $('#phrase').textContent=''; return; }
   const d=fc.daily, c=fc.current;
-  const tmin=Math.min(...d.temperature_2m_min), tmax=Math.max(...d.temperature_2m_max);
-  const pmax=Math.max(...d.precipitation_sum), ptot=sum(d.precipitation_sum), et0=sum(d.et0_fao_evapotranspiration);
-  const uv=Math.max(...d.uv_index_max);
-  const frostDays=d.temperature_2m_min.filter(x=>x<=0).length, coldDays=d.temperature_2m_min.filter(x=>x<=3).length;
-  const dayOf = (arr,val) => fmtDay(d.time[arr.indexOf(val)]);
+  /* El último día del pronóstico a veces llega incompleto (valores vacíos): se ignoran. */
+  const ok = a => (a||[]).filter(x=>x!=null&&!isNaN(x));
+  const mn = a => ok(a).length? Math.min(...ok(a)) : NaN, mx = a => ok(a).length? Math.max(...ok(a)) : NaN;
+  const tmin=mn(d.temperature_2m_min), tmax=mx(d.temperature_2m_max);
+  const pmax=mx(d.precipitation_sum), ptot=sum(d.precipitation_sum), et0=sum(d.et0_fao_evapotranspiration);
+  const uv=mx(d.uv_index_max), nDays=ok(d.et0_fao_evapotranspiration).length||16;
+  const frostDays=ok(d.temperature_2m_min).filter(x=>x<=0).length, coldDays=ok(d.temperature_2m_min).filter(x=>x<=3).length;
+  const dayOf = (arr,val) => { const i=(arr||[]).indexOf(val); return i>=0? fmtDay(d.time[i]) : '—'; };
   let html='';
   // heladas
   let lv = tmin<=-3?'crit':tmin<=0?'serious':tmin<=3?'warn':'ok';
@@ -440,7 +443,7 @@ async function renderResumen(){
   let p=`En <b>${state.name.split(' (')[0]}</b> hay ahora <b>${r1(c.temperature_2m)} °C</b> (sensación de ${r1(c.apparent_temperature)} °C), ${desc}, con ${r0(c.relative_humidity_2m)} % de humedad. `;
   p+= frostDays? `Atención: se esperan <b>${frostDays} noche(s) con helada</b>. ` : '';
   p+= ptot>=50? `Se acumularían <b>${r0(ptot)} mm de lluvia</b> en 16 días. ` : ptot<5? `Prácticamente no lloverá en 16 días; el cultivo dependerá del riego. ` : `Se esperan ${r0(ptot)} mm de lluvia en 16 días. `;
-  p+= `La atmósfera evaporará unos <b>${r1(et0/16)} mm diarios</b> (ET₀).`;
+  p+= `La atmósfera evaporará unos <b>${r1(et0/nDays)} mm diarios</b> (ET₀).`;
   $('#phrase').innerHTML=p;
   // ríos, en segundo plano
   const here=`${state.lat},${state.lon}`;
@@ -528,9 +531,9 @@ async function renderAgua(){
   const d=fc.daily, kc=+$('#crop').value, crop=$('#crop').selectedOptions[0].text;
   const et0=d.et0_fao_evapotranspiration, etc=et0.map(x=>x*kc), pe=d.precipitation_sum.map(x=>x*0.8);
   const net=Math.max(0,sum(etc)-sum(pe));
-  const gdd=sum(d.temperature_2m_max.map((x,i)=>Math.max(0,(x+d.temperature_2m_min[i])/2-10)));
+  const gdd=sum(d.temperature_2m_max.map((x,i)=>(x==null||d.temperature_2m_min[i]==null)?null:Math.max(0,(x+d.temperature_2m_min[i])/2-10)));
   const sun=sum(d.sunshine_duration)/3600, rad=mean(d.shortwave_radiation_sum);
-  const frost=d.temperature_2m_min.filter(x=>x<=0).length;
+  const frost=d.temperature_2m_min.filter(x=>x!=null&&x<=0).length;
   const st=(lab,val,unit,note)=>`<div class="stat"><div class="lab">${lab}</div><div class="val">${val}<small> ${unit}</small></div><div class="note">${note}</div></div>`;
   cards.innerHTML=
     st('ET₀ acumulada',r0(sum(et0)),'mm',`Promedio de ${r1(mean(et0))} mm/día`)+
@@ -669,7 +672,13 @@ function showTab(name){
   current=name;
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));
   document.querySelectorAll('section.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+name));
-  if(!rendered.has(name)){ rendered.add(name); RENDER[name](); }
+  if(!rendered.has(name)){ rendered.add(name);
+    Promise.resolve().then(()=>RENDER[name]()).catch(e=>{
+      rendered.delete(name);
+      const sec=$('#t-'+name); const old=sec.querySelector('.internal-err'); if(old) old.remove();
+      sec.insertAdjacentHTML('afterbegin',`<div class="card err internal-err" style="margin-bottom:12px">⚠️ Este módulo no pudo mostrarse por un dato inesperado (${e.message}). Prueba otra localidad o vuelve a abrir la pestaña; si se repite, envía una captura.</div>`);
+      if(name==='resumen') $('#phrase').textContent='—';
+    }); }
   if(location.hash!=='#'+name) history.replaceState(null,'','#'+name);
 }
 function setLocation(lat,lon,name){
