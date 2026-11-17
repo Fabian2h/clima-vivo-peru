@@ -274,7 +274,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
     </div>
   </section>
 </main>
-<footer><b>Versión 4</b> · Clima Vivo Perú · aplicativo académico de N. Fabián Huaranga · Ingeniería Agrícola, UNALM · Datos abiertos de NASA, Copernicus/ECMWF, Open‑Meteo (CC BY 4.0) y ENFEN.</footer>
+<footer><b>Versión 6</b> · Clima Vivo Perú · aplicativo académico de N. Fabián Huaranga · Ingeniería Agrícola, UNALM · Datos abiertos de NASA, Copernicus/ECMWF, Open‑Meteo (CC BY 4.0) y ENFEN.</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -297,7 +297,7 @@ const mean = a => { const v=a.filter(x=>x!=null&&!isNaN(x)); return v.length? v.
 const sum = a => a.filter(x=>x!=null&&!isNaN(x)).reduce((s,x)=>s+x,0);
 const pct = (arr,p) => { const v=arr.filter(x=>x!=null&&!isNaN(x)).sort((a,b)=>a-b); if(!v.length) return NaN; const i=(v.length-1)*p, lo=Math.floor(i), hi=Math.ceil(i); return v[lo]+(v[hi]-v[lo])*(i-lo); };
 function linreg(xs,ys){ const n=xs.length, mx=mean(xs), my=mean(ys); let a=0,b=0; for(let i=0;i<n;i++){a+=(xs[i]-mx)*(ys[i]-my); b+=(xs[i]-mx)**2;} const m=a/b; return {m, c:my-m*mx}; }
-async function getJSON(url, ms=45000){
+async function getJSON(url, ms=30000){
   const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),ms);
   try{ const r=await fetch(url,{signal:ctl.signal}); if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const j=await r.json(); if(j && j._cvp_saved) markCached(j._cvp_saved);
@@ -363,7 +363,7 @@ const loadForecast = () => memo('fc', () => getJSON(`https://api.open-meteo.com/
   `&hourly=vapour_pressure_deficit,freezing_level_height,soil_moisture_3_to_9cm`+
   `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,et0_fao_evapotranspiration,uv_index_max,wind_speed_10m_max,shortwave_radiation_sum,sunshine_duration`+
   `&timezone=America%2FLima&forecast_days=16`));
-const loadAir = () => memo('air', () => getJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${state.lat}&longitude=${state.lon}&current=pm2_5,pm10,uv_index,dust&timezone=America%2FLima`));
+const loadAir = () => memo('air', () => getJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${state.lat}&longitude=${state.lon}&current=pm2_5,pm10,uv_index,dust&timezone=America%2FLima`,12000));
 const loadFloodFc = () => memo('flfc', () => getJSON(`https://flood-api.open-meteo.com/v1/flood?latitude=${state.lat}&longitude=${state.lon}&daily=river_discharge,river_discharge_max&past_days=60&forecast_days=30`));
 const loadFloodHist = () => memo('flh', () => getJSON(`https://flood-api.open-meteo.com/v1/flood?latitude=${state.lat}&longitude=${state.lon}&daily=river_discharge&start_date=1991-01-01&end_date=${iso(addDays(new Date(),-61))}`,60000));
 const powerClim = (lat,lon) => memoGlobal(`pclim:${lat.toFixed(2)},${lon.toFixed(2)}`, () => getJSON(`https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=T2M,T2M_MAX,T2M_MIN,PRECTOTCORR&community=AG&longitude=${lon}&latitude=${lat}&format=JSON`).then(d=>d.properties.parameter));
@@ -405,7 +405,6 @@ async function renderResumen(){
   const sem=$('#semaforo'); loading(sem); $('#phrase').innerHTML='<span class="loading">Cargando datos…</span>';
   let fc, air, river=null;
   try{ [fc, air] = await Promise.all([loadForecast(), loadAir().catch(()=>null)]); }catch(e){ fail(sem,e); $('#phrase').textContent=''; return; }
-  try{ const [h,f]=await Promise.all([loadFloodHist(), loadFloodFc()]); river=riverStats(h,f); }catch(e){ river=null; }
   const d=fc.daily, c=fc.current;
   const tmin=Math.min(...d.temperature_2m_min), tmax=Math.max(...d.temperature_2m_max);
   const pmax=Math.max(...d.precipitation_sum), ptot=sum(d.precipitation_sum), et0=sum(d.et0_fao_evapotranspiration);
@@ -429,14 +428,8 @@ async function renderResumen(){
   const def=et0-ptot*0.8;
   lv = def>60?'serious':def>30?'warn':'ok';
   html+=semItem('💧','Déficit hídrico',lv, `ET₀ de ${r0(et0)} mm frente a ${r0(ptot*0.8)} mm de lluvia efectiva: balance de ${sgn(-def)} mm.`);
-  // ríos
-  if(river && river.histMean>=1 && river.rows.some(r=>r.t>=iso(new Date()))){
-    const fut=river.rows.filter(r=>r.t>=iso(new Date()));
-    let worst=null; fut.forEach(r=>{ const ratio=(r.qmax??r.q)/r.p90; if(!worst||ratio>worst.ratio) worst={...r,ratio}; });
-    const q=worst.qmax??worst.q;
-    lv = q>=worst.p99?'crit':q>=worst.p90?'serious':q>=worst.p50*1.5?'warn':'ok';
-    html+=semItem('🌊','Ríos y huaicos',lv, `Pico de caudal pronosticado de ${r0(q)} m³/s (${fmtDay(worst.t)}); para esa fecha, el percentil 90 histórico es ${r0(worst.p90)} m³/s.`);
-  } else html+=semItem('🌊','Ríos y huaicos','na', river? 'El punto no está sobre un río principal; elige el cauce en el mapa.' : 'Sin respuesta de GloFAS.');
+  // ríos: se completa después (la historia de GloFAS desde 1991 puede tardar)
+  html+=`<div id="semRio">${semItem('🌊','Ríos y huaicos','na','⏳ Consultando el caudal del río (GloFAS)…')}</div>`;
   // aire
   if(air && air.current){ const pm=air.current.pm2_5; lv = pm>55?'crit':pm>35?'serious':pm>15?'warn':'ok';
     html+=semItem('🫁','Calidad del aire',lv, `PM2.5 en este momento: ${r0(pm)} µg/m³ (la guía de la OMS para 24 h es 15).`); }
@@ -449,6 +442,17 @@ async function renderResumen(){
   p+= ptot>=50? `Se acumularían <b>${r0(ptot)} mm de lluvia</b> en 16 días. ` : ptot<5? `Prácticamente no lloverá en 16 días; el cultivo dependerá del riego. ` : `Se esperan ${r0(ptot)} mm de lluvia en 16 días. `;
   p+= `La atmósfera evaporará unos <b>${r1(et0/16)} mm diarios</b> (ET₀).`;
   $('#phrase').innerHTML=p;
+  // ríos, en segundo plano
+  const here=`${state.lat},${state.lon}`;
+  try{ const [h,f]=await Promise.all([loadFloodHist(), loadFloodFc()]); river=riverStats(h,f); }catch(e){ river=null; }
+  const box=$('#semRio'); if(!box || here!==`${state.lat},${state.lon}`) return;
+  if(river && river.histMean>=1 && river.rows.some(r=>r.t>=iso(new Date()))){
+    const fut=river.rows.filter(r=>r.t>=iso(new Date()));
+    let worst=null; fut.forEach(r=>{ const ratio=(r.qmax??r.q)/r.p90; if(!worst||ratio>worst.ratio) worst={...r,ratio}; });
+    const q=worst.qmax??worst.q;
+    const lvr = q>=worst.p99?'crit':q>=worst.p90?'serious':q>=worst.p50*1.5?'warn':'ok';
+    box.innerHTML=semItem('🌊','Ríos y huaicos',lvr, `Pico de caudal pronosticado de ${r0(q)} m³/s (${fmtDay(worst.t)}); para esa fecha, el percentil 90 histórico es ${r0(worst.p90)} m³/s.`);
+  } else box.innerHTML=semItem('🌊','Ríos y huaicos','na', river? 'El punto no está sobre un río principal; elige el cauce en el mapa.' : 'GloFAS no respondió; inténtalo más tarde en la pestaña «Ríos y huaicos».');
 }
 
 /* ---------- AHORA ---------- */
@@ -762,7 +766,25 @@ $('#crop').innerHTML=CROPS.map(c=>`<option value="${c[1]}">${c[0]}</option>`).jo
 $('#crop').onchange=renderAgua;
 $('#btnSearch').onclick=search; $('#q').addEventListener('keydown',e=>{ if(e.key==='Enter') search(); });
 $('#btnMap').onclick=()=>{ const b=$('#mapBox'); const open=b.style.display!=='block'; b.style.display=open?'block':'none'; if(open){ if(!map) initMap(); setTimeout(()=>map.invalidateSize(),50); } };
-$('#btnGeo').onclick=()=>{ if(!navigator.geolocation) return; navigator.geolocation.getCurrentPosition(p=>setLocation(p.coords.latitude,p.coords.longitude,'Mi ubicación'),()=>{$('#searchResults').innerHTML='<span class="err">No se pudo obtener tu ubicación.</span>';}); };
+$('#btnGeo').onclick=()=>{
+  const inApp=/FBAN|FBAV|Instagram|WhatsApp|Line\//i.test(navigator.userAgent);
+  const openSafari = isIOS ? ' Si abriste el enlace desde WhatsApp, toca el ícono de la brújula (o «⋯» → «Abrir en Safari») y prueba de nuevo allí.' : ' Si abriste el enlace desde WhatsApp, ábrelo en Chrome y prueba de nuevo.';
+  if(!navigator.geolocation){ info('⚠️ Este navegador no permite usar la ubicación.'+openSafari,15000); return; }
+  if(!window.isSecureContext){ info('⚠️ La ubicación solo funciona desde la dirección https://fabian2h.github.io/clima-vivo-peru/',12000); return; }
+  info('📍 Buscando tu ubicación… Si aparece un aviso, toca <b>«Permitir»</b>.');
+  navigator.geolocation.getCurrentPosition(
+    p=>{ $('#infoBanner').classList.remove('show'); setLocation(p.coords.latitude,p.coords.longitude,'Mi ubicación'); },
+    err=>{
+      let msg;
+      if(err.code===1) msg = isIOS
+        ? '🔒 El iPhone no dio permiso de ubicación. Ve a <b>Ajustes → Privacidad y seguridad → Localización</b>: verifica que esté activada y entra a <b>«Safari (Sitios web)»</b> → elige <b>«Al usar la app»</b>. Luego vuelve a tocar «Mi ubicación».'
+        : '🔒 No se dio permiso de ubicación. Toca el candado junto a la dirección web → Permisos → Ubicación → Permitir.';
+      else if(err.code===3) msg='⌛ El GPS tardó demasiado. Sal a un lugar con mejor señal o vuelve a intentarlo.';
+      else msg='⚠️ No se pudo obtener tu ubicación (GPS o datos móviles desactivados).';
+      info(msg+(inApp||err.code===1?openSafari:''),20000);
+    },
+    {enableHighAccuracy:false, timeout:15000, maximumAge:600000});
+};
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 window.addEventListener('hashchange',()=>{ const h=location.hash.slice(1); if(RENDER[h]&&h!==current) showTab(h); });
 /* La app siempre abre en Lima; Huaral y las demás quedan a un clic en «Localidades». */

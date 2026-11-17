@@ -2,7 +2,7 @@
    - App (HTML, íconos, librerías): se guarda al instalar y se sirve aunque no haya señal.
    - Datos climáticos (NASA POWER, Open-Meteo): primero la red; si falla, la última copia guardada.
 */
-const VERSION = 'cvp-v4';
+const VERSION = 'cvp-v6';
 const SHELL = `${VERSION}-shell`;
 const DATA = `${VERSION}-data`;
 const SHELL_FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
