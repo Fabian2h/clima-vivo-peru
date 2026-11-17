@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clima Vivo Perú — Observatorio climático en tiempo real</title>
+<meta name="description" content="Datos climáticos reales de NASA POWER, ERA5, CMIP6, GloFAS y ENFEN para cualquier punto del Perú: anomalías, heladas, balance hídrico, El Niño costero, ríos y proyecciones.">
+<meta name="theme-color" content="#0f3d3e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Clima Vivo">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f3ee; --surface:#ffffff; --surface2:#efece4; --ink:#1d2321; --ink2:#4a524f; --muted:#7a817e;
+  --line:#dcd8cd; --brand:#0f3d3e; --brand2:#1f6f6b; --accent:#c8553d;
+  --s1:#2a6f97; --s2:#c8553d; --s3:#6a994e; --s4:#8e5ea2; --s5:#d4a017;
+  --ok:#2e7d32; --warn:#c79100; --serious:#d9622b; --crit:#b3261e;
+  --grid:rgba(0,0,0,.07);
+  --radius:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#111615; --surface:#1a2120; --surface2:#222b29; --ink:#e9eeec; --ink2:#b8c2bf; --muted:#8a9592;
+    --line:#2f3a38; --brand:#7cc6be; --brand2:#5fb3aa; --accent:#f08a6c;
+    --s1:#6cb4e0; --s2:#f08a6c; --s3:#9ccc65; --s4:#c39bd3; --s5:#f2c94c;
+    --ok:#66bb6a; --warn:#f2c94c; --serious:#ff9a5c; --crit:#ff6b5e;
+    --grid:rgba(255,255,255,.08);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.5}
+a{color:var(--brand2)}
+header{background:linear-gradient(135deg,#0f3d3e,#1f6f6b 60%,#c8553d);color:#fff;padding:22px 20px 18px}
+header .wrap{max-width:1180px;margin:0 auto}
+h1{font-family:Fraunces,Georgia,serif;font-size:clamp(1.6rem,4vw,2.3rem);margin:0;letter-spacing:-.01em}
+header p{margin:4px 0 0;opacity:.9;max-width:760px}
+main{max-width:1180px;margin:0 auto;padding:16px}
+.locbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;position:sticky;top:0;z-index:500}
+.locbar select,.locbar input,.btn{font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);color:var(--ink)}
+.btn{cursor:pointer;font-weight:600}
+.btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+@media (prefers-color-scheme: dark){.btn.primary{color:#0b1312}}
+.locname{font-weight:700;margin-left:auto;font-size:1.02rem}
+.locname small{font-weight:400;color:var(--muted)}
+#searchResults{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+#searchResults button{font:inherit;font-size:.85rem;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface2);color:var(--ink);cursor:pointer}
+#mapBox{display:none;height:340px;border-radius:var(--radius);overflow:hidden;margin-top:10px;border:1px solid var(--line)}
+nav.tabs{display:flex;gap:6px;overflow-x:auto;margin:14px 0 10px;padding-bottom:4px}
+nav.tabs button{font:inherit;font-weight:600;white-space:nowrap;padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);cursor:pointer}
+nav.tabs button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+@media (prefers-color-scheme: dark){nav.tabs button.on{color:#0b1312}}
+section.tab{display:none}
+section.tab.on{display:block}
+.grid{display:grid;gap:12px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.card h2{font-family:Fraunces,Georgia,serif;font-size:1.15rem;margin:0 0 4px}
+.card h3{font-size:.95rem;margin:0 0 6px}
+.sub{color:var(--muted);font-size:.85rem;margin:0 0 10px}
+.stat .lab{color:var(--ink2);font-size:.82rem}
+.stat .val{font-size:1.65rem;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.stat .val small{font-size:.9rem;font-weight:500;color:var(--ink2)}
+.stat .note{color:var(--muted);font-size:.78rem}
+.chartbox{position:relative;height:280px}
+.chartbox.tall{height:340px}
+.sem{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--surface2);border-left:5px solid var(--line)}
+.sem .ico{font-size:1.4rem;line-height:1}
+.sem b{display:block}
+.sem span{font-size:.85rem;color:var(--ink2)}
+.sem .lvl{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.lv-ok{border-left-color:var(--ok)} .lv-ok .lvl{color:var(--ok)}
+.lv-warn{border-left-color:var(--warn)} .lv-warn .lvl{color:var(--warn)}
+.lv-serious{border-left-color:var(--serious)} .lv-serious .lvl{color:var(--serious)}
+.lv-crit{border-left-color:var(--crit)} .lv-crit .lvl{color:var(--crit)}
+.lv-na{border-left-color:var(--muted)} .lv-na .lvl{color:var(--muted)}
+.phrase{font-size:1.05rem;background:var(--surface2);border-radius:12px;padding:12px 14px}
+.stripes{display:flex;height:120px;border-radius:10px;overflow:hidden}
+.stripes div{flex:1}
+.stripes-axis{display:flex;justify-content:space-between;color:var(--muted);font-size:.78rem;margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:.85rem;font-variant-numeric:tabular-nums}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--ink2);font-weight:600}
+.tblwrap{overflow-x:auto;max-height:360px}
+.loading{color:var(--muted);font-style:italic;padding:12px 0}
+.err{color:var(--crit);font-size:.9rem}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.78rem;font-weight:700;background:var(--surface2)}
+.enfen{border-left:6px solid var(--crit)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.small{font-size:.82rem;color:var(--muted)}
+details summary{cursor:pointer;font-weight:600}
+footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:.82rem}
+.banner{display:none;margin-top:10px;padding:10px 14px;border-radius:12px;font-size:.9rem;border:1px solid var(--line);background:var(--surface)}
+.banner.show{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner.off{border-left:5px solid var(--warn)}
+.banner.info{border-left:5px solid var(--brand2)}
+#btnInstall{display:none}
+@media (max-width:640px){ .locbar{position:static} header p{font-size:.9rem} }
+.legend-sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>Clima Vivo Perú</h1>
+  <p>Observatorio climático con datos reales de NASA, ERA5/Copernicus, GloFAS, modelos CMIP6 y el ENFEN: no solo cuánto calor hace hoy, sino cuán anómalo es, qué significa para el agua, los cultivos y los ríos, y hacia dónde va el clima de tu localidad.</p>
+</div></header>
+
+<main>
+  <div class="locbar">
+    <select id="preset" aria-label="Localidad predefinida"></select>
+    <input id="q" placeholder="Buscar distrito o pueblo…" aria-label="Buscar localidad" style="min-width:180px;flex:1">
+    <button class="btn" id="btnSearch">Buscar</button>
+    <button class="btn" id="btnMap">Mapa</button>
+    <button class="btn" id="btnGeo">Mi ubicación</button>
+    <button class="btn" id="btnSave" title="Descarga todos los módulos de esta localidad para consultarlos sin señal">Guardar sin conexión</button>
+    <button class="btn primary" id="btnInstall">Instalar app</button>
+    <div class="locname" id="locname">—</div>
+    <div id="searchResults"></div>
+  </div>
+  <div class="banner off" id="offBanner"></div>
+  <div class="banner info" id="infoBanner"></div>
+  <div id="mapBox"></div>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="resumen" class="on">Semáforo</button>
+    <button data-tab="ahora">Ahora y 16 días</button>
+    <button data-tab="pulso">Pulso: anomalías</button>
+    <button data-tab="agua">Agua y cultivos</button>
+    <button data-tab="nino">El Niño costero</button>
+    <button data-tab="rios">Ríos y huaicos</button>
+    <button data-tab="calent">Calentamiento local</button>
+    <button data-tab="futuro">Futuro 2050</button>
+    <button data-tab="fuentes">Fuentes</button>
+  </nav>
+
+  <!-- RESUMEN -->
+  <section class="tab on" id="t-resumen">
+    <div class="card" style="margin-bottom:12px">
+      <h2>Hoy en una frase</h2>
+      <div class="phrase" id="phrase"><span class="loading">Cargando datos…</span></div>
+    </div>
+    <div class="card">
+      <h2>Semáforo de riesgos climáticos — próximos 16 días</h2>
+      <p class="sub">Combina pronóstico (Open‑Meteo), caudal de ríos (GloFAS) y calidad del aire (CAMS). Los umbrales son referenciales; las alertas oficiales son las de SENAMHI e INDECI.</p>
+      <div class="grid g3" id="semaforo"></div>
+    </div>
+  </section>
+
+  <!-- AHORA -->
+  <section class="tab" id="t-ahora">
+    <div class="grid g4" id="nowCards"></div>
+    <div class="grid g2" style="margin-top:12px">
+      <div class="card"><h3>Temperatura máxima y mínima (°C)</h3><p class="sub">Pronóstico de 16 días</p><div class="chartbox"><canvas id="cTemp"></canvas></div></div>
+      <div class="card"><h3>Precipitación diaria (mm)</h3><p class="sub">Pronóstico de 16 días</p><div class="chartbox"><canvas id="cPrec"></canvas></div></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="row"><h3 style="margin:0">Tabla del pronóstico</h3><button class="btn" id="dlFc" style="margin-left:auto">Descargar CSV</button></div>
+      <div class="tblwrap" id="fcTable"></div>
+    </div>
+  </section>
+
+  <!-- PULSO -->
+  <section class="tab" id="t-pulso">
+    <div class="card" style="margin-bottom:12px">
+      <h2>¿Qué tan anómalos han sido los últimos 60 días?</h2>
+      <p class="sub">Observado diario NASA POWER comparado con la climatología NASA POWER del mismo punto (normal de largo plazo). Una anomalía positiva significa más caliente (o más lluvioso) que lo normal.</p>
+      <div class="grid g4" id="pulsoCards"></div>
+    </div>
+    <div class="grid g2">
+      <div class="card"><h3>Temperatura máxima: observada y normal (°C)</h3><div class="chartbox"><canvas id="cPulsoT"></canvas></div></div>
+      <div class="card"><h3>Anomalía diaria de la temperatura mínima (°C)</h3><div class="chartbox"><canvas id="cPulsoA"></canvas></div></div>
+    </div>
+  </section>
+
+  <!-- AGUA -->
+  <section class="tab" id="t-agua">
+    <div class="card" style="margin-bottom:12px">
+      <div class="row">
+        <h2 style="margin:0">Balance hídrico y riego — 16 días</h2>
+        <label style="margin-left:auto">Cultivo
+          <select id="crop" class="btn" style="font-weight:500"></select>
+        </label>
+      </div>
+      <p class="sub">ET₀ FAO‑56 Penman‑Monteith (Open‑Meteo) × Kc de la etapa media del cultivo (FAO‑56) = ETc. Precipitación efectiva estimada en 80 % de la lluvia. Es una estimación para planificar, no un diseño de riego.</p>
+      <div class="grid g4" id="aguaCards"></div>
+    </div>
+    <div class="grid g2">
+      <div class="card"><h3>Agua acumulada: demanda del cultivo vs lluvia efectiva (mm)</h3><div class="chartbox"><canvas id="cBal"></canvas></div></div>
+      <div class="card"><h3>Evapotranspiración de referencia ET₀ (mm/día)</h3><div class="chartbox"><canvas id="cEt0"></canvas></div></div>
+    </div>
+  </section>
+
+  <!-- NIÑO -->
+  <section class="tab" id="t-nino">
+    <div class="card enfen" style="margin-bottom:12px">
+      <div class="row"><span class="pill" style="color:var(--crit)">ESTADO OFICIAL</span><h2 style="margin:0">Alerta de El Niño Costero</h2></div>
+      <p style="margin:8px 0">Según el Comunicado Oficial ENFEN N.° 19‑2026, la Comisión ratificó la «Alerta de El Niño Costero»: la magnitud en la región Niño 1+2 se mantendría <b>extraordinaria hasta febrero de 2027</b>, con un debilitamiento gradual hasta junio de 2027.</p>
+      <p class="small">Texto fijo, actualizado al 16‑11‑2026. El ENFEN emite comunicados cada quincena; revisa el más reciente en
+        <a href="https://www.gob.pe/institucion/senamhi/colecciones/1308-comunicados-enfen" target="_blank" rel="noopener">gob.pe — Comunicados ENFEN</a> o
+        <a href="https://enfen.imarpe.gob.pe/" target="_blank" rel="noopener">enfen.imarpe.gob.pe</a>.</p>
+      <details><summary>¿Niño costero o Niño global?</summary>
+        <p class="small">El <b>Niño costero</b> se mide con el ICEN, la anomalía de la temperatura del mar en la región Niño 1+2 (frente a Perú y Ecuador); trae lluvias intensas y calor a la costa norte y centro. El <b>Niño global</b> (región Niño 3.4, Pacífico central) altera el clima de todo el planeta y suele causar sequías en el altiplano sur peruano. Pueden ocurrir juntos o por separado.</p>
+      </details>
+    </div>
+    <div class="grid g2">
+      <div class="card"><h3>Huella en tierra: anomalía de temperatura en la costa (°C)</h3><p class="sub">Promedio de los últimos 30 días disponibles, NASA POWER frente a su climatología</p><div class="chartbox"><canvas id="cCoast"></canvas></div><div id="coastNote" class="small"></div></div>
+      <div class="card"><h3>Temperatura superficial del mar frente al litoral (°C)</h3><p class="sub">Últimos 90 días + 7 de pronóstico, Open‑Meteo Marine</p><div class="chartbox"><canvas id="cSst"></canvas></div></div>
+    </div>
+    <div class="grid g4" id="sstCards" style="margin-top:12px"></div>
+  </section>
+
+  <!-- RIOS -->
+  <section class="tab" id="t-rios">
+    <div class="card" style="margin-bottom:12px">
+      <h2>Caudal del río más cercano — modelo GloFAS (Copernicus)</h2>
+      <p class="sub">Simulación hidrológica de unos 5 km de resolución. Si el caudal sale casi cero, el punto no cae sobre un río principal: elige en el mapa un punto sobre el cauce (por ejemplo, el río Chancay a la altura de Huaral).</p>
+      <div class="grid g4" id="rioCards"></div>
+    </div>
+    <div class="card"><h3>Caudal (m³/s): últimos 60 días + pronóstico de 30 días frente a la historia 1991–hoy</h3><div class="chartbox tall"><canvas id="cRio"></canvas></div></div>
+  </section>
+
+  <!-- CALENTAMIENTO -->
+  <section class="tab" id="t-calent">
+    <div class="card" style="margin-bottom:12px">
+      <h2>Las «franjas del calentamiento» de tu localidad</h2>
+      <p class="sub">Cada franja es un año (NASA POWER, temperatura media anual a 2 m). Azul: más frío y rojo: más cálido que el promedio de 1991–2020.</p>
+      <div class="stripes" id="stripes"></div>
+      <div class="stripes-axis" id="stripesAxis"></div>
+    </div>
+    <div class="grid g4" id="calCards"></div>
+    <div class="grid g2" style="margin-top:12px">
+      <div class="card"><div class="row"><h3 style="margin:0">Temperatura media anual (°C) y tendencia</h3><button class="btn" id="dlAnn" style="margin-left:auto">CSV</button></div><div class="chartbox"><canvas id="cAnn"></canvas></div></div>
+      <div class="card"><h3>Precipitación anual (mm)</h3><div class="chartbox"><canvas id="cAnnP"></canvas></div></div>
+    </div>
+  </section>
+
+  <!-- FUTURO -->
+  <section class="tab" id="t-futuro">
+    <div class="card" style="margin-bottom:12px">
+      <h2>¿Hacia dónde va el clima de este punto? 1950–2050</h2>
+      <p class="sub">Tres modelos climáticos CMIP6 de alta resolución (HighResMIP, escenario de altas emisiones), servidos por Open‑Meteo Climate API. Se muestran como anomalías respecto del promedio 1991–2020 de cada modelo (método delta), lo que elimina el sesgo propio de cada modelo. Para el horizonte 2100 consulta los escenarios regionalizados de SENAMHI.</p>
+      <div class="grid g4" id="futCards"></div>
+    </div>
+    <div class="grid g2">
+      <div class="card"><div class="row"><h3 style="margin:0">Anomalía de la temperatura media anual (°C)</h3><button class="btn" id="dlFut" style="margin-left:auto">CSV</button></div><div class="chartbox tall"><canvas id="cFutT"></canvas></div></div>
+      <div class="card"><h3>Cambio en la precipitación anual (% vs 1991–2020), media de modelos, suavizado 10 años</h3><div class="chartbox tall"><canvas id="cFutP"></canvas></div></div>
+    </div>
+  </section>
+
+  <!-- FUENTES -->
+  <section class="tab" id="t-fuentes">
+    <div class="card">
+      <h2>Fuentes de datos y método</h2>
+      <table>
+        <tr><th>Módulo</th><th style="text-align:left">Fuente</th></tr>
+        <tr><td>Ahora, pronóstico, ET₀, isoterma 0 °C, humedad del suelo</td><td style="text-align:left"><a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener">Open‑Meteo Forecast API</a> (modelos ECMWF, GFS, ICON y otros)</td></tr>
+        <tr><td>Anomalías, franjas, climatología</td><td style="text-align:left"><a href="https://power.larc.nasa.gov/" target="_blank" rel="noopener">NASA POWER</a> (MERRA‑2 / CERES), comunidad AG</td></tr>
+        <tr><td>Ríos y huaicos</td><td style="text-align:left"><a href="https://open-meteo.com/en/docs/flood-api" target="_blank" rel="noopener">GloFAS v4 — Copernicus Emergency Management Service</a></td></tr>
+        <tr><td>Mar</td><td style="text-align:left"><a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener">Open‑Meteo Marine API</a></td></tr>
+        <tr><td>Proyecciones</td><td style="text-align:left"><a href="https://open-meteo.com/en/docs/climate-api" target="_blank" rel="noopener">Open‑Meteo Climate API</a> — CMIP6 HighResMIP (EC‑Earth3P‑HR, MRI‑AGCM3‑2‑S, MPI‑ESM1‑2‑XR)</td></tr>
+        <tr><td>Aire y UV</td><td style="text-align:left"><a href="https://open-meteo.com/en/docs/air-quality-api" target="_blank" rel="noopener">CAMS — Copernicus Atmosphere Monitoring Service</a></td></tr>
+        <tr><td>El Niño (estado oficial)</td><td style="text-align:left"><a href="https://enfen.imarpe.gob.pe/" target="_blank" rel="noopener">ENFEN</a> · <a href="https://www.senamhi.gob.pe/" target="_blank" rel="noopener">SENAMHI</a> · <a href="https://www.imarpe.gob.pe/" target="_blank" rel="noopener">IMARPE</a></td></tr>
+      </table>
+      <p class="small" style="margin-top:12px">Son datos de reanálisis, satélite y modelos en malla (de 5 a 50 km), no de estaciones. En la sierra, con relieve abrupto, pueden diferir de una estación de SENAMHI cercana; úsalos para ver tendencias y anomalías, y contrástalos con estaciones para un diseño. Grados‑día con base de 10 °C. Helada meteorológica: Tmín ≤ 0 °C; riesgo agronómico: Tmín ≤ 3 °C.</p>
+    </div>
+  </section>
+</main>
+<footer>Clima Vivo Perú · aplicativo académico de N. Fabián Huaranga · Ingeniería Agrícola, UNALM · Datos abiertos de NASA, Copernicus/ECMWF, Open‑Meteo (CC BY 4.0) y ENFEN.</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+/* ---------- utilidades ---------- */
+const $ = s => document.querySelector(s);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const r1 = x => (x==null||isNaN(x)) ? '—' : (Math.round(x*10)/10).toLocaleString('es-PE');
+const r0 = x => (x==null||isNaN(x)) ? '—' : Math.round(x).toLocaleString('es-PE');
+const sgn = x => (x>0?'+':'') + r1(x);
+const pad = n => String(n).padStart(2,'0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const ymd = d => iso(d).replaceAll('-','');
+const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const MON = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const fmtDay = s => { const [y,m,d]=s.split('-'); return `${+d} ${MES[+m-1]}`; };
+const mean = a => { const v=a.filter(x=>x!=null&&!isNaN(x)); return v.length? v.reduce((s,x)=>s+x,0)/v.length : NaN; };
+const sum = a => a.filter(x=>x!=null&&!isNaN(x)).reduce((s,x)=>s+x,0);
+const pct = (arr,p) => { const v=arr.filter(x=>x!=null&&!isNaN(x)).sort((a,b)=>a-b); if(!v.length) return NaN; const i=(v.length-1)*p, lo=Math.floor(i), hi=Math.ceil(i); return v[lo]+(v[hi]-v[lo])*(i-lo); };
+function linreg(xs,ys){ const n=xs.length, mx=mean(xs), my=mean(ys); let a=0,b=0; for(let i=0;i<n;i++){a+=(xs[i]-mx)*(ys[i]-my); b+=(xs[i]-mx)**2;} const m=a/b; return {m, c:my-m*mx}; }
+async function getJSON(url, ms=45000){
+  const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),ms);
+  try{ const r=await fetch(url,{signal:ctl.signal}); if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j=await r.json(); if(j && j._cvp_saved) markCached(j._cvp_saved);
+    return j; }
+  catch(e){ if(!navigator.onLine) throw new Error('sin conexión y sin copia guardada de este dato'); throw e; }
+  finally{ clearTimeout(t); }
+}
+function downloadCSV(name, header, rows){
+  const txt=[header.join(','),...rows.map(r=>r.map(v=>v==null?'':v).join(','))].join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+txt],{type:'text/csv'})); a.download=name; a.click();
+}
+const loading = el => el.innerHTML='<div class="loading">Consultando datos…</div>';
+const fail = (el,e) => el.innerHTML=`<div class="err">No se pudo obtener el dato (${e.message||e}). Revisa tu conexión o inténtalo en unos minutos.</div>`;
+
+/* ---------- estado ---------- */
+const PRESETS = [
+  ['Huaral (costa, valle Chancay)',-11.495,-77.207],
+  ['Acos (cuenca alta Chancay‑Huaral)',-11.27,-76.83],
+  ['Lima — Cercado',-12.046,-77.043],
+  ['La Molina (UNALM)',-12.083,-76.947],
+  ['Tumbes',-3.567,-80.451],
+  ['Piura',-5.194,-80.632],
+  ['Chiclayo',-6.771,-79.841],
+  ['Trujillo',-8.112,-79.029],
+  ['Chimbote',-9.075,-78.593],
+  ['Huaraz',-9.527,-77.528],
+  ['Ica',-14.068,-75.729],
+  ['Arequipa',-16.409,-71.537],
+  ['Cusco',-13.532,-71.967],
+  ['Puno',-15.840,-70.022],
+  ['Huancayo',-12.065,-75.204],
+  ['Cajamarca',-7.164,-78.510],
+  ['Iquitos',-3.749,-73.253],
+  ['Pucallpa',-8.379,-74.554],
+];
+const state = { lat:PRESETS[0][1], lon:PRESETS[0][2], name:PRESETS[0][0], cache:{}, loaded:{} };
+const charts = {};
+function chart(id,cfg){ if(charts[id]) charts[id].destroy(); charts[id]=new Chart(document.getElementById(id),cfg); }
+function memo(key,fn){ const k=`${state.lat.toFixed(3)},${state.lon.toFixed(3)}:${key}`; if(!state.cache[k]) state.cache[k]=fn().catch(e=>{delete state.cache[k]; throw e;}); return state.cache[k]; }
+function memoGlobal(key,fn){ if(!state.cache[key]) state.cache[key]=fn().catch(e=>{delete state.cache[key]; throw e;}); return state.cache[key]; }
+
+/* ---------- Chart.js por defecto ---------- */
+function chartDefaults(){
+  Chart.defaults.font.family='Inter, system-ui, sans-serif';
+  Chart.defaults.color=css('--ink2');
+  Chart.defaults.borderColor=css('--grid');
+  Chart.defaults.plugins.legend.labels.boxWidth=12;
+  Chart.defaults.plugins.tooltip.mode='index';
+  Chart.defaults.plugins.tooltip.intersect=false;
+  Chart.defaults.interaction={mode:'index',intersect:false};
+  Chart.defaults.maintainAspectRatio=false;
+  Chart.defaults.elements.line.borderWidth=2;
+  Chart.defaults.elements.point.radius=0;
+  Chart.defaults.elements.point.hoverRadius=5;
+  Chart.defaults.elements.bar.borderRadius=4;
+}
+
+/* ---------- cargadores de datos ---------- */
+const loadForecast = () => memo('fc', () => getJSON(`https://api.open-meteo.com/v1/forecast?latitude=${state.lat}&longitude=${state.lon}`+
+  `&current=temperature_2m,relative_humidity_2m,apparent_temperature,dew_point_2m,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day`+
+  `&hourly=vapour_pressure_deficit,freezing_level_height,soil_moisture_3_to_9cm`+
+  `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,et0_fao_evapotranspiration,uv_index_max,wind_speed_10m_max,shortwave_radiation_sum,sunshine_duration`+
+  `&timezone=America%2FLima&forecast_days=16`));
+const loadAir = () => memo('air', () => getJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${state.lat}&longitude=${state.lon}&current=pm2_5,pm10,uv_index,dust&timezone=America%2FLima`));
+const loadFloodFc = () => memo('flfc', () => getJSON(`https://flood-api.open-meteo.com/v1/flood?latitude=${state.lat}&longitude=${state.lon}&daily=river_discharge,river_discharge_max&past_days=60&forecast_days=30`));
+const loadFloodHist = () => memo('flh', () => getJSON(`https://flood-api.open-meteo.com/v1/flood?latitude=${state.lat}&longitude=${state.lon}&daily=river_discharge&start_date=1991-01-01&end_date=${iso(addDays(new Date(),-61))}`,60000));
+const powerClim = (lat,lon) => memoGlobal(`pclim:${lat.toFixed(2)},${lon.toFixed(2)}`, () => getJSON(`https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=T2M,T2M_MAX,T2M_MIN,PRECTOTCORR&community=AG&longitude=${lon}&latitude=${lat}&format=JSON`).then(d=>d.properties.parameter));
+const powerDaily = (lat,lon,days=60) => memoGlobal(`pday:${days}:${lat.toFixed(2)},${lon.toFixed(2)}`, () => {
+  const end=addDays(new Date(),-3), start=addDays(end,-(days-1));
+  return getJSON(`https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M_MAX,T2M_MIN,T2M,PRECTOTCORR&community=AG&longitude=${lon}&latitude=${lat}&start=${ymd(start)}&end=${ymd(end)}&format=JSON`).then(d=>d.properties.parameter);
+});
+const powerMonthly = () => memo('pmon', async () => {
+  const y=new Date().getFullYear();
+  for(const end of [y-1,y-2]){
+    try{ const d=await getJSON(`https://power.larc.nasa.gov/api/temporal/monthly/point?parameters=T2M,PRECTOTCORR&community=AG&longitude=${state.lon}&latitude=${state.lat}&start=1981&end=${end}&format=JSON`,60000); return d.properties.parameter; }
+    catch(e){ if(end===y-2) throw e; }
+  }
+});
+const MODELS = ['EC_Earth3P_HR','MRI_AGCM3_2_S','MPI_ESM1_2_XR'];
+const loadClimate = () => memo('cmip', () => getJSON(`https://climate-api.open-meteo.com/v1/climate?latitude=${state.lat}&longitude=${state.lon}&start_date=1950-01-01&end_date=2050-12-31&models=${MODELS.join(',')}&daily=temperature_2m_mean,precipitation_sum`,90000));
+const SEA = [['Paita',-5.10,-81.30],['Chimbote',-9.10,-78.80],['Callao',-12.10,-77.35],['Ilo',-17.70,-71.50]];
+const loadSea = (p) => memoGlobal(`sea:${p[0]}`, () => getJSON(`https://marine-api.open-meteo.com/v1/marine?latitude=${p[1]}&longitude=${p[2]}&hourly=sea_surface_temperature&past_days=90&forecast_days=7&timezone=America%2FLima`));
+const COAST = [['Tumbes',-3.567,-80.451],['Piura',-5.194,-80.632],['Chiclayo',-6.771,-79.841],['Trujillo',-8.112,-79.029],['Chimbote',-9.075,-78.593],['Lima',-12.046,-77.043],['Ica',-14.068,-75.729]];
+
+/* ---------- derivados ---------- */
+const WCODE = {0:'despejado',1:'mayormente despejado',2:'parcialmente nublado',3:'cubierto',45:'neblina',48:'neblina con escarcha',51:'llovizna débil',53:'llovizna',55:'llovizna intensa',56:'llovizna helada',57:'llovizna helada',61:'lluvia débil',63:'lluvia moderada',65:'lluvia fuerte',66:'lluvia helada',67:'lluvia helada',71:'nevada débil',73:'nevada',75:'nevada fuerte',77:'granizo menudo',80:'chubascos débiles',81:'chubascos',82:'chubascos violentos',85:'chubascos de nieve',86:'chubascos de nieve fuertes',95:'tormenta eléctrica',96:'tormenta con granizo',99:'tormenta con granizo fuerte'};
+const dirTxt = d => ['N','NE','E','SE','S','SO','O','NO'][Math.round(d/45)%8];
+function heatIndex(T,RH){ if(T<27) return T; const F=T*9/5+32; const HI=-42.379+2.04901523*F+10.14333127*RH-.22475541*F*RH-.00683783*F*F-.05481717*RH*RH+.00122874*F*F*RH+.00085282*F*RH*RH-.00000199*F*F*RH*RH; return (HI-32)*5/9; }
+const uvCat = u => u>=11?'extremo':u>=8?'muy alto':u>=6?'alto':u>=3?'moderado':'bajo';
+const LV = {ok:['lv-ok','Normal','✅'],warn:['lv-warn','Atención','⚠️'],serious:['lv-serious','Alerta','🟠'],crit:['lv-crit','Peligro','🔴'],na:['lv-na','Sin dato','⚪']};
+function semItem(icon,title,level,text){ const [cls,lab]=LV[level]; return `<div class="sem ${cls}"><div class="ico">${icon}</div><div><div class="lvl">${lab}</div><b>${title}</b><span>${text}</span></div></div>`; }
+function dailyMean(times, vals){ const m={}; times.forEach((t,i)=>{ const d=t.slice(0,10); if(vals[i]==null) return; (m[d]=m[d]||[]).push(vals[i]); }); return Object.keys(m).sort().map(d=>[d,mean(m[d])]); }
+function riverStats(hist, fc){
+  const ht=hist.daily.time, hv=hist.daily.river_discharge;
+  const byDoy={}; ht.forEach((t,i)=>{ if(hv[i]==null) return; const k=t.slice(5); (byDoy[k]=byDoy[k]||[]).push(hv[i]); });
+  const window = (dstr) => { const d=new Date(dstr+'T12:00:00'); let v=[]; for(let k=-7;k<=7;k++){ const x=addDays(d,k); const key=`${pad(x.getMonth()+1)}-${pad(x.getDate())}`; if(byDoy[key]) v=v.concat(byDoy[key]); } return v; };
+  const rows = fc.daily.time.map((t,i)=>{ const w=window(t); return {t, q:fc.daily.river_discharge[i], qmax:fc.daily.river_discharge_max?fc.daily.river_discharge_max[i]:null, p50:pct(w,.5), p90:pct(w,.9), p99:pct(w,.99)}; });
+  return {rows, histMean: mean(hv), histMax: Math.max(...hv.filter(x=>x!=null))};
+}
+
+/* ---------- RESUMEN ---------- */
+async function renderResumen(){
+  const sem=$('#semaforo'); loading(sem); $('#phrase').innerHTML='<span class="loading">Cargando datos…</span>';
+  let fc, air, river=null;
+  try{ [fc, air] = await Promise.all([loadForecast(), loadAir().catch(()=>null)]); }catch(e){ fail(sem,e); $('#phrase').textContent=''; return; }
+  try{ const [h,f]=await Promise.all([loadFloodHist(), loadFloodFc()]); river=riverStats(h,f); }catch(e){ river=null; }
+  const d=fc.daily, c=fc.current;
+  const tmin=Math.min(...d.temperature_2m_min), tmax=Math.max(...d.temperature_2m_max);
+  const pmax=Math.max(...d.precipitation_sum), ptot=sum(d.precipitation_sum), et0=sum(d.et0_fao_evapotranspiration);
+  const uv=Math.max(...d.uv_index_max);
+  const frostDays=d.temperature_2m_min.filter(x=>x<=0).length, coldDays=d.temperature_2m_min.filter(x=>x<=3).length;
+  const dayOf = (arr,val) => fmtDay(d.time[arr.indexOf(val)]);
+  let html='';
+  // heladas
+  let lv = tmin<=-3?'crit':tmin<=0?'serious':tmin<=3?'warn':'ok';
+  html+=semItem('❄️','Heladas',lv, tmin<=3?`Mínima de ${r1(tmin)} °C el ${dayOf(d.temperature_2m_min,tmin)}. ${frostDays} día(s) bajo 0 °C y ${coldDays} bajo 3 °C.`:`La mínima más baja será de ${r1(tmin)} °C; no hay riesgo de helada.`);
+  // lluvia
+  lv = pmax>=40?'crit':pmax>=20?'serious':pmax>=10?'warn':'ok';
+  html+=semItem('🌧️','Lluvias intensas',lv, `Máximo diario de ${r1(pmax)} mm (${dayOf(d.precipitation_sum,pmax)}); acumulado de 16 días: ${r0(ptot)} mm.`);
+  // calor
+  lv = tmax>=35?'crit':tmax>=32?'serious':tmax>=30?'warn':'ok';
+  html+=semItem('🌡️','Calor y estrés térmico',lv, `Máxima de ${r1(tmax)} °C el ${dayOf(d.temperature_2m_max,tmax)}.`);
+  // UV
+  lv = uv>=11?'crit':uv>=8?'serious':uv>=6?'warn':'ok';
+  html+=semItem('☀️','Radiación UV',lv, `Índice UV máximo: ${r1(uv)} (${uvCat(uv)}).`);
+  // déficit
+  const def=et0-ptot*0.8;
+  lv = def>60?'serious':def>30?'warn':'ok';
+  html+=semItem('💧','Déficit hídrico',lv, `ET₀ de ${r0(et0)} mm frente a ${r0(ptot*0.8)} mm de lluvia efectiva: balance de ${sgn(-def)} mm.`);
+  // ríos
+  if(river && river.histMean>=1 && river.rows.some(r=>r.t>=iso(new Date()))){
+    const fut=river.rows.filter(r=>r.t>=iso(new Date()));
+    let worst=null; fut.forEach(r=>{ const ratio=(r.qmax??r.q)/r.p90; if(!worst||ratio>worst.ratio) worst={...r,ratio}; });
+    const q=worst.qmax??worst.q;
+    lv = q>=worst.p99?'crit':q>=worst.p90?'serious':q>=worst.p50*1.5?'warn':'ok';
+    html+=semItem('🌊','Ríos y huaicos',lv, `Pico de caudal pronosticado de ${r0(q)} m³/s (${fmtDay(worst.t)}); para esa fecha, el percentil 90 histórico es ${r0(worst.p90)} m³/s.`);
+  } else html+=semItem('🌊','Ríos y huaicos','na', river? 'El punto no está sobre un río principal; elige el cauce en el mapa.' : 'Sin respuesta de GloFAS.');
+  // aire
+  if(air && air.current){ const pm=air.current.pm2_5; lv = pm>55?'crit':pm>35?'serious':pm>15?'warn':'ok';
+    html+=semItem('🫁','Calidad del aire',lv, `PM2.5 en este momento: ${r0(pm)} µg/m³ (la guía de la OMS para 24 h es 15).`); }
+  else html+=semItem('🫁','Calidad del aire','na','Sin dato.');
+  sem.innerHTML=html;
+  // frase
+  const desc=WCODE[c.weather_code]||'';
+  let p=`En <b>${state.name.split(' (')[0]}</b> hay ahora <b>${r1(c.temperature_2m)} °C</b> (sensación de ${r1(c.apparent_temperature)} °C), ${desc}, con ${r0(c.relative_humidity_2m)} % de humedad. `;
+  p+= frostDays? `Atención: se esperan <b>${frostDays} noche(s) con helada</b>. ` : '';
+  p+= ptot>=50? `Se acumularían <b>${r0(ptot)} mm de lluvia</b> en 16 días. ` : ptot<5? `Prácticamente no lloverá en 16 días; el cultivo dependerá del riego. ` : `Se esperan ${r0(ptot)} mm de lluvia en 16 días. `;
+  p+= `La atmósfera evaporará unos <b>${r1(et0/16)} mm diarios</b> (ET₀).`;
+  $('#phrase').innerHTML=p;
+}
+
+/* ---------- AHORA ---------- */
+async function renderAhora(){
+  const cards=$('#nowCards'); loading(cards);
+  let fc, air; try{ [fc,air]=await Promise.all([loadForecast(), loadAir().catch(()=>null)]); }catch(e){ return fail(cards,e); }
+  const c=fc.current, h=fc.hourly, d=fc.daily;
+  const nowIdx = Math.max(0, h.time.findIndex(t=>t>=c.time.slice(0,13)));
+  const vpd=h.vapour_pressure_deficit[nowIdx], fz=h.freezing_level_height[nowIdx], sm=h.soil_moisture_3_to_9cm[nowIdx];
+  const st=(lab,val,unit,note='')=>`<div class="card stat"><div class="lab">${lab}</div><div class="val">${val}<small> ${unit}</small></div><div class="note">${note}</div></div>`;
+  cards.innerHTML =
+    st('Temperatura',r1(c.temperature_2m),'°C',WCODE[c.weather_code]||'')+
+    st('Sensación térmica',r1(c.apparent_temperature),'°C',`Índice de calor: ${r1(heatIndex(c.temperature_2m,c.relative_humidity_2m))} °C`)+
+    st('Humedad relativa',r0(c.relative_humidity_2m),'%',`Punto de rocío: ${r1(c.dew_point_2m)} °C`)+
+    st('Viento',r0(c.wind_speed_10m),'km/h',`Del ${dirTxt(c.wind_direction_10m)} · ráfagas de ${r0(c.wind_gusts_10m)} km/h`)+
+    st('Déficit de presión de vapor',r1(vpd),'kPa', vpd>1.6?'Aire muy secante: estrés hídrico en la planta':vpd<0.4?'Aire saturado: riesgo de hongos':'Rango cómodo para la transpiración')+
+    st('Isoterma de 0 °C',r0(fz),'m s.n.m.','Altitud a la que el aire está a 0 °C; clave para glaciares y nevadas')+
+    st('Humedad del suelo (3–9 cm)',sm!=null?r0(sm*100):'—','% vol.','Contenido volumétrico de agua, modelo')+
+    st('Índice UV hoy',r1(d.uv_index_max[0]),'',uvCat(d.uv_index_max[0]))+
+    st('Presión en superficie',r0(c.surface_pressure),'hPa',`Nubosidad: ${r0(c.cloud_cover)} %`)+
+    st('Radiación solar hoy',r1(d.shortwave_radiation_sum[0]),'MJ/m²',`Sol efectivo: ${r1(d.sunshine_duration[0]/3600)} h`)+
+    (air&&air.current? st('Material particulado PM2.5',r0(air.current.pm2_5),'µg/m³',`PM10: ${r0(air.current.pm10)} · polvo: ${r0(air.current.dust)} µg/m³`):'');
+  const labels=d.time.map(fmtDay);
+  chart('cTemp',{type:'line',data:{labels,datasets:[
+    {label:'Máxima',data:d.temperature_2m_max,borderColor:css('--s2'),backgroundColor:css('--s2')},
+    {label:'Mínima',data:d.temperature_2m_min,borderColor:css('--s1'),backgroundColor:css('--s1')}]},
+    options:{scales:{y:{title:{display:true,text:'°C'}}}}});
+  chart('cPrec',{type:'bar',data:{labels,datasets:[{label:'Precipitación (mm)',data:d.precipitation_sum,backgroundColor:css('--s1')}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:(ctx)=>`Probabilidad: ${d.precipitation_probability_max[ctx.dataIndex]??'—'} %`}}},scales:{y:{beginAtZero:true,title:{display:true,text:'mm'}}}}});
+  const rows=d.time.map((t,i)=>[t,d.temperature_2m_max[i],d.temperature_2m_min[i],d.precipitation_sum[i],d.precipitation_probability_max[i],d.et0_fao_evapotranspiration[i],d.wind_speed_10m_max[i],d.uv_index_max[i],d.shortwave_radiation_sum[i]]);
+  const head=['Fecha','Tmáx °C','Tmín °C','Lluvia mm','Prob. %','ET₀ mm','Viento máx km/h','UV','Radiación MJ/m²'];
+  $('#fcTable').innerHTML=`<table><tr>${head.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr><td>${fmtDay(r[0])}</td>${r.slice(1).map(v=>`<td>${r1(v)}</td>`).join('')}</tr>`).join('')}</table>`;
+  $('#dlFc').onclick=()=>downloadCSV(`pronostico_${state.lat}_${state.lon}.csv`,['fecha','tmax_c','tmin_c','precip_mm','prob_precip_pct','et0_mm','viento_max_kmh','uv_max','radiacion_mj_m2'],rows);
+}
+
+/* ---------- PULSO ---------- */
+function anomalySeries(daily, clim){
+  const days=Object.keys(daily.T2M_MAX).sort();
+  return days.map(k=>{ const m=MON[+k.slice(4,6)-1]; const v=x=>daily[x][k]===-999?null:daily[x][k];
+    return {k, date:`${k.slice(0,4)}-${k.slice(4,6)}-${k.slice(6)}`, tmax:v('T2M_MAX'), tmin:v('T2M_MIN'), t:v('T2M'), p:v('PRECTOTCORR'),
+      ntmax:clim.T2M_MAX[m], ntmin:clim.T2M_MIN[m], nt:clim.T2M[m], np:clim.PRECTOTCORR[m]}; }).filter(r=>r.tmax!=null);
+}
+async function renderPulso(){
+  const cards=$('#pulsoCards'); loading(cards);
+  let s; try{ const [daily,clim]=await Promise.all([powerDaily(state.lat,state.lon,60), powerClim(state.lat,state.lon)]); s=anomalySeries(daily,clim); }catch(e){ return fail(cards,e); }
+  if(!s.length) return fail(cards,'NASA POWER aún no publica los días recientes');
+  const aMax=mean(s.map(r=>r.tmax-r.ntmax)), aMin=mean(s.map(r=>r.tmin-r.ntmin)), aT=mean(s.map(r=>r.t-r.nt));
+  const P=sum(s.map(r=>r.p)), NP=sum(s.map(r=>r.np)); const pp = NP>0.5? P/NP*100 : NaN;
+  const last30=s.slice(-30); const a30=mean(last30.map(r=>r.t-r.nt));
+  const warmDays=s.filter(r=>r.tmax-r.ntmax>=2).length;
+  const st=(lab,val,unit,note)=>`<div class="stat"><div class="lab">${lab}</div><div class="val">${val}<small> ${unit}</small></div><div class="note">${note}</div></div>`;
+  cards.innerHTML=
+    st('Anomalía de la T máxima',sgn(aMax),'°C',`${s.length} días, del ${fmtDay(s[0].date)} al ${fmtDay(s[s.length-1].date)}`)+
+    st('Anomalía de la T mínima',sgn(aMin),'°C','Las noches cálidas son la señal más clara del calentamiento')+
+    st('Anomalía de la T media (30 d)',sgn(a30),'°C',Math.abs(a30)<0.5?'Cerca de lo normal':a30>0?'Más cálido que lo normal':'Más frío que lo normal')+
+    st('Lluvia frente a lo normal',isNaN(pp)?'—':r0(pp),'%',`${r0(P)} mm observados frente a ${r0(NP)} mm normales${isNaN(pp)?' (zona sin lluvia normal en esta época)':''}`)+
+    st('Días «anormalmente cálidos»',warmDays,'días','Tmáx al menos 2 °C sobre la normal');
+  const labels=s.map(r=>fmtDay(r.date));
+  chart('cPulsoT',{type:'line',data:{labels,datasets:[
+    {label:'Tmáx observada',data:s.map(r=>r.tmax),borderColor:css('--s2'),backgroundColor:css('--s2')},
+    {label:'Tmáx normal',data:s.map(r=>r.ntmax),borderColor:css('--muted'),borderDash:[5,4],backgroundColor:css('--muted')}]},
+    options:{scales:{y:{title:{display:true,text:'°C'}}}}});
+  const an=s.map(r=>+(r.tmin-r.ntmin).toFixed(2));
+  chart('cPulsoA',{type:'bar',data:{labels,datasets:[{label:'Anomalía Tmín (°C)',data:an,backgroundColor:an.map(v=>v>=0?css('--s2'):css('--s1'))}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'°C'}}}}});
+}
+
+/* ---------- AGUA ---------- */
+const CROPS = [['Papa',1.15],['Maíz amiláceo / choclo',1.20],['Palto',0.85],['Arroz',1.20],['Alfalfa',0.95],['Café',1.00],['Quinua',1.00],['Mandarino / cítricos',0.70],['Espárrago',0.95],['Pastos altoandinos',0.85],['Arándano',1.05],['Hortalizas (promedio)',1.05]];
+async function renderAgua(){
+  const cards=$('#aguaCards'); loading(cards);
+  let fc; try{ fc=await loadForecast(); }catch(e){ return fail(cards,e); }
+  const d=fc.daily, kc=+$('#crop').value, crop=$('#crop').selectedOptions[0].text;
+  const et0=d.et0_fao_evapotranspiration, etc=et0.map(x=>x*kc), pe=d.precipitation_sum.map(x=>x*0.8);
+  const net=Math.max(0,sum(etc)-sum(pe));
+  const gdd=sum(d.temperature_2m_max.map((x,i)=>Math.max(0,(x+d.temperature_2m_min[i])/2-10)));
+  const sun=sum(d.sunshine_duration)/3600, rad=mean(d.shortwave_radiation_sum);
+  const frost=d.temperature_2m_min.filter(x=>x<=0).length;
+  const st=(lab,val,unit,note)=>`<div class="stat"><div class="lab">${lab}</div><div class="val">${val}<small> ${unit}</small></div><div class="note">${note}</div></div>`;
+  cards.innerHTML=
+    st('ET₀ acumulada',r0(sum(et0)),'mm',`Promedio de ${r1(mean(et0))} mm/día`)+
+    st(`ETc de ${crop}`,r0(sum(etc)),'mm',`Kc = ${kc}`)+
+    st('Lluvia efectiva',r0(sum(pe)),'mm',`Lluvia total: ${r0(sum(d.precipitation_sum))} mm`)+
+    st('Riego neto requerido',r0(net),'mm',`≈ ${r0(net*10)} m³/ha en 16 días; añade la eficiencia de tu sistema`)+
+    st('Grados‑día (base 10 °C)',r0(gdd),'°C·día','Calor útil acumulado para el desarrollo del cultivo')+
+    st('Horas de sol',r0(sun),'h',`Radiación media de ${r1(rad)} MJ/m²/día`)+
+    st('Noches con helada',frost,'',frost?'Considera riego nocturno o cobertura':'Sin heladas previstas');
+  let a=0,b=0; const cumE=etc.map(x=>a+=x), cumP=pe.map(x=>b+=x);
+  const labels=d.time.map(fmtDay);
+  chart('cBal',{type:'line',data:{labels,datasets:[
+    {label:`Demanda ETc (${crop})`,data:cumE,borderColor:css('--s2'),backgroundColor:css('--s2')},
+    {label:'Lluvia efectiva',data:cumP,borderColor:css('--s1'),backgroundColor:css('--s1')}]},
+    options:{scales:{y:{beginAtZero:true,title:{display:true,text:'mm acumulados'}}}}});
+  chart('cEt0',{type:'bar',data:{labels,datasets:[{label:'ET₀ (mm/día)',data:et0,backgroundColor:css('--s5')}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,title:{display:true,text:'mm/día'}}}}});
+}
+
+/* ---------- NIÑO ---------- */
+async function renderNino(){
+  if(state.loaded.nino) return; state.loaded.nino=true;
+  $('#coastNote').textContent='Consultando NASA POWER para 7 ciudades…';
+  try{
+    const res=await Promise.all(COAST.map(async ([n,la,lo])=>{ const [dl,cl]=await Promise.all([powerDaily(la,lo,30),powerClim(la,lo)]); const s=anomalySeries(dl,cl); return [n, mean(s.map(r=>r.tmax-r.ntmax)), mean(s.map(r=>r.tmin-r.ntmin)), s.length? s[s.length-1].date:null]; }));
+    chart('cCoast',{type:'bar',data:{labels:res.map(r=>r[0]),datasets:[
+      {label:'Anomalía Tmáx',data:res.map(r=>+r[1].toFixed(2)),backgroundColor:css('--s2')},
+      {label:'Anomalía Tmín',data:res.map(r=>+r[2].toFixed(2)),backgroundColor:css('--s4')}]},
+      options:{indexAxis:'y',scales:{x:{title:{display:true,text:'°C sobre (o bajo) lo normal'}}}}});
+    const last=res.find(r=>r[3]); $('#coastNote').textContent= last? `Datos hasta el ${fmtDay(last[3])}. De norte a sur; un valor positivo y generalizado es coherente con un Niño costero activo.`:'';
+  }catch(e){ $('#coastNote').innerHTML=`<span class="err">NASA POWER no respondió (${e.message}).</span>`; state.loaded.nino=false; }
+  try{
+    const res=await Promise.all(SEA.map(async p=>{ const d=await loadSea(p); return [p[0], dailyMean(d.hourly.time,d.hourly.sea_surface_temperature)]; }));
+    const labels=res[0][1].map(r=>fmtDay(r[0])); const today=iso(new Date());
+    const cols=[css('--s2'),css('--s5'),css('--s1'),css('--s3')];
+    chart('cSst',{type:'line',data:{labels,datasets:res.map((r,i)=>({label:r[0],data:r[1].map(x=>+x[1].toFixed(2)),borderColor:cols[i],backgroundColor:cols[i]}))},
+      options:{scales:{y:{title:{display:true,text:'°C'}},x:{ticks:{maxTicksLimit:10}}}}});
+    $('#sstCards').innerHTML=res.map(([n,s])=>{ const now=s.filter(x=>x[0]<=today).slice(-1)[0], ago=s[0]; const dlt=now[1]-ago[1];
+      return `<div class="card stat"><div class="lab">TSM frente a ${n}</div><div class="val">${r1(now[1])}<small> °C</small></div><div class="note">${sgn(dlt)} °C respecto de hace 90 días</div></div>`; }).join('');
+  }catch(e){ $('#sstCards').innerHTML=`<div class="err">Open‑Meteo Marine no respondió (${e.message}).</div>`; state.loaded.nino=false; }
+}
+
+/* ---------- RÍOS ---------- */
+async function renderRios(){
+  const cards=$('#rioCards'); loading(cards);
+  let rs; try{ const [h,f]=await Promise.all([loadFloodHist(),loadFloodFc()]); rs=riverStats(h,f); }catch(e){ return fail(cards,e); }
+  const today=iso(new Date()); const past=rs.rows.filter(r=>r.t<today), fut=rs.rows.filter(r=>r.t>=today);
+  const now=past.slice(-1)[0]||rs.rows[0]; const peak=fut.reduce((a,r)=>((r.qmax??r.q)>(a.qmax??a.q)?r:a),fut[0]);
+  const st=(lab,val,unit,note)=>`<div class="stat"><div class="lab">${lab}</div><div class="val">${val}<small> ${unit}</small></div><div class="note">${note}</div></div>`;
+  if(rs.histMean<1){ cards.innerHTML=`<div class="err">Caudal medio histórico de ${r1(rs.histMean)} m³/s: este punto no está sobre un río principal en la malla de GloFAS. Usa «Mapa» y haz clic sobre el cauce.</div>`; }
+  else cards.innerHTML=
+    st('Caudal actual (modelo)',r1(now.q),'m³/s',`Mediana histórica para esta fecha: ${r1(now.p50)} m³/s`)+
+    st('Respecto de lo normal',isNaN(now.p50)?'—':r0(now.q/now.p50*100),'%',now.q>now.p90?'Por encima del percentil 90':now.q<now.p50*0.6?'Estiaje marcado':'Dentro del rango habitual')+
+    st('Pico pronosticado (30 d)',r0(peak.qmax??peak.q),'m³/s',`${fmtDay(peak.t)} · máximo del ensamble`)+
+    st('Máximo histórico simulado',r0(rs.histMax),'m³/s','Serie de 1991 a la fecha');
+  const labels=rs.rows.map(r=>fmtDay(r.t));
+  chart('cRio',{type:'line',data:{labels,datasets:[
+    {label:'Caudal simulado / pronosticado',data:rs.rows.map(r=>r.q),borderColor:css('--s1'),backgroundColor:css('--s1'),segment:{borderDash:ctx=>rs.rows[ctx.p1DataIndex].t>=today?[6,4]:undefined}},
+    {label:'Máximo del ensamble',data:rs.rows.map(r=>r.t>=today?r.qmax:null),borderColor:css('--s4'),backgroundColor:css('--s4'),borderWidth:1.5},
+    {label:'Mediana histórica',data:rs.rows.map(r=>r.p50),borderColor:css('--muted'),backgroundColor:css('--muted'),borderDash:[2,3]},
+    {label:'Percentil 90 histórico',data:rs.rows.map(r=>r.p90),borderColor:css('--s2'),backgroundColor:css('--s2'),borderDash:[2,3]}]},
+    options:{scales:{y:{beginAtZero:true,title:{display:true,text:'m³/s'}},x:{ticks:{maxTicksLimit:12}}}}});
+}
+
+/* ---------- CALENTAMIENTO ---------- */
+const DIV=['#08306b','#2166ac','#4393c3','#92c5de','#d1e5f0','#f7f7f7','#fddbc7','#f4a582','#d6604d','#b2182b','#67000d'];
+function divColor(v,lim){ const t=Math.max(-1,Math.min(1,v/lim)); const i=(t+1)/2*(DIV.length-1); const lo=Math.floor(i), hi=Math.ceil(i), f=i-lo;
+  const h=s=>[1,3,5].map(k=>parseInt(s.slice(k,k+2),16)); const a=h(DIV[lo]), b=h(DIV[hi]);
+  return `rgb(${a.map((x,j)=>Math.round(x+(b[j]-x)*f)).join(',')})`; }
+async function renderCalent(){
+  const cards=$('#calCards'); loading(cards); $('#stripes').innerHTML='';
+  let pm; try{ pm=await powerMonthly(); }catch(e){ return fail(cards,e); }
+  const years={}; Object.keys(pm.T2M).forEach(k=>{ const y=+k.slice(0,4), m=+k.slice(4); if(m<1||m>12) return; const t=pm.T2M[k], p=pm.PRECTOTCORR[k]; if(t===-999) return; (years[y]=years[y]||{t:[],p:0}); years[y].t.push(t); if(p!==-999) years[y].p+=p*new Date(y,m,0).getDate(); });
+  const ys=Object.keys(years).map(Number).filter(y=>years[y].t.length===12).sort();
+  const T=ys.map(y=>mean(years[y].t)), P=ys.map(y=>years[y].p);
+  const base=mean(ys.map((y,i)=>y>=1991&&y<=2020?T[i]:null)); const A=T.map(t=>t-base);
+  const lim=Math.max(...A.map(Math.abs));
+  $('#stripes').innerHTML=ys.map((y,i)=>`<div style="background:${divColor(A[i],lim)}" title="${y}: ${r1(T[i])} °C (${sgn(A[i])} °C)"></div>`).join('');
+  $('#stripesAxis').innerHTML=`<span>${ys[0]}</span><span><span class="legend-sw" style="background:${DIV[2]}"></span>más frío · <span class="legend-sw" style="background:${DIV[8]}"></span>más cálido que 1991–2020</span><span>${ys[ys.length-1]}</span>`;
+  const lr=linreg(ys,T); const top=[...ys.keys()].sort((a,b)=>T[b]-T[a]).slice(0,3).map(i=>ys[i]);
+  const first=mean(T.slice(0,10)), lastd=mean(T.slice(-10));
+  const st=(lab,val,unit,note)=>`<div class="card stat"><div class="lab">${lab}</div><div class="val">${val}<small> ${unit}</small></div><div class="note">${note}</div></div>`;
+  cards.innerHTML=
+    st('Tendencia',sgn(lr.m*10),'°C/década',`Regresión lineal ${ys[0]}–${ys[ys.length-1]}`)+
+    st('Cambio entre décadas',sgn(lastd-first),'°C',`${ys[0]}–${ys[9]} frente a ${ys[ys.length-10]}–${ys[ys.length-1]}`)+
+    st('Años más cálidos',top.join(', '),'','Según NASA POWER en este punto')+
+    st(`Anomalía de ${ys[ys.length-1]}`,sgn(A[A.length-1]),'°C','Respecto del promedio 1991–2020');
+  chart('cAnn',{type:'line',data:{labels:ys,datasets:[
+    {label:'T media anual',data:T.map(x=>+x.toFixed(2)),borderColor:css('--s2'),backgroundColor:css('--s2'),pointRadius:2},
+    {label:'Tendencia lineal',data:ys.map(y=>+(lr.m*y+lr.c).toFixed(2)),borderColor:css('--muted'),borderDash:[6,4],backgroundColor:css('--muted')}]},
+    options:{scales:{y:{title:{display:true,text:'°C'}}}}});
+  chart('cAnnP',{type:'bar',data:{labels:ys,datasets:[{label:'Precipitación anual (mm)',data:P.map(x=>Math.round(x)),backgroundColor:css('--s1')}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,title:{display:true,text:'mm'}}}}});
+  $('#dlAnn').onclick=()=>downloadCSV(`nasa_power_anual_${state.lat}_${state.lon}.csv`,['anio','t_media_c','anomalia_c','precip_mm'],ys.map((y,i)=>[y,T[i].toFixed(2),A[i].toFixed(2),P[i].toFixed(0)]));
+}
+
+/* ---------- FUTURO ---------- */
+async function renderFuturo(){
+  const cards=$('#futCards'); loading(cards);
+  let d; try{ d=await loadClimate(); }catch(e){ return fail(cards,e); }
+  const t=d.daily.time; const yrs=[...new Set(t.map(x=>+x.slice(0,4)))];
+  const series={};
+  for(const m of MODELS){
+    const tv=d.daily[`temperature_2m_mean_${m}`], pv=d.daily[`precipitation_sum_${m}`]; if(!tv) continue;
+    const ay={}; t.forEach((x,i)=>{ const y=+x.slice(0,4); (ay[y]=ay[y]||{t:[],p:0}); if(tv[i]!=null) ay[y].t.push(tv[i]); if(pv&&pv[i]!=null) ay[y].p+=pv[i]; });
+    const T=yrs.map(y=>mean(ay[y].t)), P=yrs.map(y=>ay[y].p);
+    const bT=mean(yrs.map((y,i)=>y>=1991&&y<=2020?T[i]:null)), bP=mean(yrs.map((y,i)=>y>=1991&&y<=2020?P[i]:null));
+    series[m]={aT:T.map(x=>x-bT), aP:P.map(x=>bP>0?(x/bP-1)*100:NaN)};
+  }
+  const ms=Object.keys(series); if(!ms.length) return fail(cards,'sin modelos');
+  const ensT=yrs.map((_,i)=>mean(ms.map(m=>series[m].aT[i]))), ensP=yrs.map((_,i)=>mean(ms.map(m=>series[m].aP[i])));
+  const smooth=(a,w=10)=>a.map((_,i)=>i<w-1?null:mean(a.slice(i-w+1,i+1)));
+  const idx=(y0,y1)=>yrs.map((y,i)=>y>=y0&&y<=y1?i:-1).filter(i=>i>=0);
+  const dT=mean(idx(2041,2050).map(i=>ensT[i])), dT30=mean(idx(2021,2030).map(i=>ensT[i])), dP=mean(idx(2041,2050).map(i=>ensP[i]));
+  const spread=ms.map(m=>mean(idx(2041,2050).map(i=>series[m].aT[i])));
+  const st=(lab,val,unit,note)=>`<div class="stat"><div class="lab">${lab}</div><div class="val">${val}<small> ${unit}</small></div><div class="note">${note}</div></div>`;
+  cards.innerHTML=
+    st('Calentamiento hacia 2041–2050',sgn(dT),'°C',`Rango entre modelos: ${sgn(Math.min(...spread))} a ${sgn(Math.max(...spread))} °C`)+
+    st('Calentamiento en 2021–2030',sgn(dT30),'°C','La década actual, según los modelos')+
+    st('Precipitación en 2041–2050',isNaN(dP)?'—':sgn(dP),'%','La lluvia es mucho más incierta que la temperatura')+
+    st('Modelos usados',ms.length,'','EC‑Earth3P‑HR, MRI‑AGCM3‑2‑S y MPI‑ESM1‑2‑XR');
+  const cols=[css('--s1'),css('--s3'),css('--s4')];
+  chart('cFutT',{type:'line',data:{labels:yrs,datasets:[
+    ...ms.map((m,i)=>({label:m.replaceAll('_','‑'),data:series[m].aT.map(x=>+x.toFixed(2)),borderColor:cols[i]+'99',backgroundColor:cols[i],borderWidth:1})),
+    {label:'Media de modelos (10 años)',data:smooth(ensT).map(x=>x==null?null:+x.toFixed(2)),borderColor:css('--s2'),backgroundColor:css('--s2'),borderWidth:3}]},
+    options:{scales:{y:{title:{display:true,text:'°C vs 1991–2020'}},x:{ticks:{maxTicksLimit:11}}}}});
+  chart('cFutP',{type:'line',data:{labels:yrs,datasets:[{label:'Cambio de la precipitación (%)',data:smooth(ensP).map(x=>x==null?null:+x.toFixed(1)),borderColor:css('--s1'),backgroundColor:css('--s1'),fill:{target:{value:0},above:css('--s1')+'33',below:css('--s2')+'33'}}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'% vs 1991–2020'}},x:{ticks:{maxTicksLimit:11}}}}});
+  $('#dlFut').onclick=()=>downloadCSV(`cmip6_${state.lat}_${state.lon}.csv`,['anio',...ms.map(m=>'dT_'+m),'dT_media','dP_media_pct'],yrs.map((y,i)=>[y,...ms.map(m=>series[m].aT[i].toFixed(2)),ensT[i].toFixed(2),isNaN(ensP[i])?'':ensP[i].toFixed(1)]));
+}
+
+/* ---------- navegación ---------- */
+const RENDER={resumen:renderResumen,ahora:renderAhora,pulso:renderPulso,agua:renderAgua,nino:renderNino,rios:renderRios,calent:renderCalent,futuro:renderFuturo,fuentes:()=>{}};
+let current='resumen'; const rendered=new Set();
+function showTab(name){
+  current=name;
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));
+  document.querySelectorAll('section.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+name));
+  if(!rendered.has(name)){ rendered.add(name); RENDER[name](); }
+  if(location.hash!=='#'+name) history.replaceState(null,'','#'+name);
+}
+function setLocation(lat,lon,name){
+  state.lat=+(+lat).toFixed(4); state.lon=+(+lon).toFixed(4); state.name=name;
+  $('#locname').innerHTML=`${name} <small>${state.lat.toFixed(3)}, ${state.lon.toFixed(3)}</small>`;
+  rendered.clear(); if(state.loaded.nino) rendered.add('nino');
+  oldestCached=null; updateOnline();
+  if(marker) marker.setLatLng([state.lat,state.lon]);
+  try{ localStorage.setItem('cvp_loc',JSON.stringify({lat:state.lat,lon:state.lon,name})); }catch(e){}
+  showTab(current);
+}
+let map=null, marker=null;
+function initMap(){
+  map=L.map('mapBox').setView([-9.5,-75.5],5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'© OpenStreetMap'}).addTo(map);
+  marker=L.marker([state.lat,state.lon]).addTo(map);
+  map.on('click',e=>setLocation(e.latlng.lat,e.latlng.lng,`Punto elegido`));
+}
+async function search(){
+  const q=$('#q').value.trim(); if(!q) return; const box=$('#searchResults'); box.innerHTML='<span class="small">Buscando…</span>';
+  try{ const d=await getJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=es&format=json&countryCode=PE`);
+    if(!d.results||!d.results.length){ box.innerHTML='<span class="small">Sin resultados. Prueba con el mapa.</span>'; return; }
+    box.innerHTML=d.results.map((r,i)=>`<button data-i="${i}">${r.name}${r.admin1?', '+r.admin1:''}${r.elevation!=null?' · '+Math.round(r.elevation)+' m':''}</button>`).join('');
+    box.querySelectorAll('button').forEach(b=>b.onclick=()=>{ const r=d.results[+b.dataset.i]; box.innerHTML=''; setLocation(r.latitude,r.longitude,`${r.name}${r.admin1?', '+r.admin1:''}`); });
+  }catch(e){ box.innerHTML=`<span class="err">Error de búsqueda: ${e.message}</span>`; }
+}
+
+/* ---------- app instalable y sin conexión ---------- */
+let oldestCached=null;
+function fmtStamp(s){ const d=new Date(s); return `${d.getDate()} ${MES[d.getMonth()]} ${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function markCached(saved){
+  if(!oldestCached || saved<oldestCached) oldestCached=saved;
+  const b=$('#offBanner'); b.classList.add('show');
+  b.innerHTML=`📴 <b>Sin conexión.</b> Estás viendo datos guardados el ${fmtStamp(oldestCached)}. Se actualizarán solos cuando vuelva la señal.`;
+}
+function updateOnline(){
+  const b=$('#offBanner');
+  if(!navigator.onLine){ b.classList.add('show'); if(!oldestCached) b.innerHTML='📴 <b>Sin conexión.</b> Se muestran las localidades y módulos que ya consultaste o guardaste.'; }
+  else if(oldestCached){ b.innerHTML='📶 Volvió la señal. <button class="btn" id="btnReload">Actualizar datos</button>'; $('#btnReload').onclick=()=>{ state.cache={}; oldestCached=null; b.classList.remove('show'); setLocation(state.lat,state.lon,state.name); }; }
+  else b.classList.remove('show');
+}
+function info(html,ms){ const b=$('#infoBanner'); b.innerHTML=html; b.classList.add('show'); if(ms) setTimeout(()=>b.classList.remove('show'),ms); }
+function getSaved(){ try{ return JSON.parse(localStorage.getItem('cvp_saved'))||[]; }catch(e){ return []; } }
+function buildPresets(){
+  const saved=getSaved();
+  $('#preset').innerHTML='<option value="">Localidades…</option>'+
+    (saved.length?`<optgroup label="Guardadas sin conexión">${saved.map((s,i)=>`<option value="s${i}">★ ${s.name}</option>`).join('')}</optgroup>`:'')+
+    `<optgroup label="Perú">${PRESETS.map((p,i)=>`<option value="${i}">${p[0]}</option>`).join('')}</optgroup>`;
+}
+async function saveOffline(){
+  const tasks=[()=>loadForecast(),()=>loadAir(),()=>loadFloodFc(),()=>loadFloodHist(),()=>powerClim(state.lat,state.lon),()=>powerDaily(state.lat,state.lon,60),()=>powerMonthly(),()=>loadClimate(),
+    ...SEA.map(p=>()=>loadSea(p)), ...COAST.flatMap(([n,la,lo])=>[()=>powerDaily(la,lo,30),()=>powerClim(la,lo)])];
+  let done=0, okN=0; const btn=$('#btnSave'); btn.disabled=true;
+  info(`⏳ Guardando ${state.name}… 0/${tasks.length}`);
+  await Promise.all(tasks.map(t=>t().then(()=>okN++).catch(()=>{}).finally(()=>{ done++; info(`⏳ Guardando ${state.name}… ${done}/${tasks.length}`); })));
+  btn.disabled=false;
+  if(okN){
+    const saved=getSaved().filter(s=>Math.abs(s.lat-state.lat)>1e-3||Math.abs(s.lon-state.lon)>1e-3);
+    saved.unshift({name:state.name,lat:state.lat,lon:state.lon,at:new Date().toISOString()});
+    try{ localStorage.setItem('cvp_saved',JSON.stringify(saved.slice(0,12))); }catch(e){}
+    buildPresets();
+    info(`✅ <b>${state.name}</b> quedó guardada (${okN} de ${tasks.length} consultas). Sin señal, elígela en «Localidades» con la ★.`,9000);
+  } else info('⚠️ No se pudo guardar: no hay conexión.',6000);
+}
+let installEvt=null;
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); installEvt=e; $('#btnInstall').style.display='inline-block'; });
+window.addEventListener('appinstalled',()=>{ $('#btnInstall').style.display='none'; info('✅ Clima Vivo quedó instalada. Ábrela desde el ícono en tu pantalla de inicio.',8000); });
+if(isIOS && !isStandalone) $('#btnInstall').style.display='inline-block';
+$('#btnInstall').onclick=async()=>{
+  if(installEvt){ installEvt.prompt(); await installEvt.userChoice; installEvt=null; $('#btnInstall').style.display='none'; }
+  else if(isIOS) info('En iPhone o iPad: toca <b>Compartir</b> (el cuadro con la flecha) y luego <b>«Agregar a inicio»</b>.',12000);
+};
+$('#btnSave').onclick=saveOffline;
+window.addEventListener('online',updateOnline); window.addEventListener('offline',updateOnline);
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+/* ---------- inicio ---------- */
+chartDefaults();
+buildPresets();
+$('#preset').onchange=e=>{ const v=e.target.value; if(v==='') return;
+  if(v[0]==='s'){ const s=getSaved()[+v.slice(1)]; if(s) setLocation(s.lat,s.lon,s.name); }
+  else { const p=PRESETS[+v]; setLocation(p[1],p[2],p[0]); }
+  e.target.value=''; };
+updateOnline();
+$('#crop').innerHTML=CROPS.map(c=>`<option value="${c[1]}">${c[0]}</option>`).join('');
+$('#crop').onchange=renderAgua;
+$('#btnSearch').onclick=search; $('#q').addEventListener('keydown',e=>{ if(e.key==='Enter') search(); });
+$('#btnMap').onclick=()=>{ const b=$('#mapBox'); const open=b.style.display!=='block'; b.style.display=open?'block':'none'; if(open){ if(!map) initMap(); setTimeout(()=>map.invalidateSize(),50); } };
+$('#btnGeo').onclick=()=>{ if(!navigator.geolocation) return; navigator.geolocation.getCurrentPosition(p=>setLocation(p.coords.latitude,p.coords.longitude,'Mi ubicación'),()=>{$('#searchResults').innerHTML='<span class="err">No se pudo obtener tu ubicación.</span>';}); };
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+window.addEventListener('hashchange',()=>{ const h=location.hash.slice(1); if(RENDER[h]&&h!==current) showTab(h); });
+let saved=null; try{ saved=JSON.parse(localStorage.getItem('cvp_loc')); }catch(e){}
+const startTab=RENDER[location.hash.slice(1)]?location.hash.slice(1):'resumen';
+current=startTab;
+if(saved&&saved.lat) setLocation(saved.lat,saved.lon,saved.name); else setLocation(state.lat,state.lon,state.name);
+</script>
+</body>
+</html>

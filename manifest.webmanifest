@@ -1,0 +1,23 @@
+{
+  "name": "Clima Vivo Perú — Observatorio climático",
+  "short_name": "Clima Vivo",
+  "description": "Datos climáticos reales de NASA, Copernicus, CMIP6 y ENFEN para cualquier punto del Perú: anomalías, heladas, riego, El Niño costero, ríos y proyecciones.",
+  "lang": "es-PE",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f3ee",
+  "theme_color": "#0f3d3e",
+  "categories": ["weather", "education", "utilities"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Semáforo de riesgos", "url": "./index.html#resumen" },
+    { "name": "Agua y cultivos", "url": "./index.html#agua" },
+    { "name": "El Niño costero", "url": "./index.html#nino" }
+  ]
+}
