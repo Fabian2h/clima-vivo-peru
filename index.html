@@ -203,13 +203,34 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
   <section class="tab" id="t-nino">
     <div class="card enfen" style="margin-bottom:12px">
       <div class="row"><span class="pill" style="color:var(--crit)">ESTADO OFICIAL</span><h2 style="margin:0">Alerta de El Niño Costero</h2></div>
-      <p style="margin:8px 0">Según el Comunicado Oficial ENFEN N.° 19‑2026, la Comisión ratificó la «Alerta de El Niño Costero»: la magnitud en la región Niño 1+2 se mantendría <b>extraordinaria hasta febrero de 2027</b>, con un debilitamiento gradual hasta junio de 2027.</p>
-      <p class="small">Texto fijo, actualizado al 16‑11‑2026. El ENFEN emite comunicados cada quincena; revisa el más reciente en
+      <p style="margin:8px 0"><b>Comunicado Oficial ENFEN N.° 20‑2026 (13 de noviembre de 2026): «El Niño costero continuaría hasta inicios de invierno de 2027».</b> El Niño costero (región Niño 1+2), iniciado en marzo de 2026, se mantendría con <b>magnitud extraordinaria hasta febrero de 2027</b>, debilitándose progresivamente hasta julio de 2027. El Niño en el Pacífico central (región Niño 3.4) continuaría con <b>magnitud muy fuerte hasta febrero de 2027</b>, y luego declinaría hasta una condición neutra en junio de 2027.</p>
+      <p class="small">Texto fijo, actualizado al 18‑11‑2026. El ENFEN emite comunicados cada quincena; revisa el más reciente en
         <a href="https://www.gob.pe/institucion/senamhi/colecciones/1308-comunicados-enfen" target="_blank" rel="noopener">gob.pe — Comunicados ENFEN</a> o
         <a href="https://enfen.imarpe.gob.pe/" target="_blank" rel="noopener">enfen.imarpe.gob.pe</a>.</p>
       <details><summary>¿Niño costero o Niño global?</summary>
         <p class="small">El <b>Niño costero</b> se mide con el ICEN, la anomalía de la temperatura del mar en la región Niño 1+2 (frente a Perú y Ecuador); trae lluvias intensas y calor a la costa norte y centro. El <b>Niño global</b> (región Niño 3.4, Pacífico central) altera el clima de todo el planeta y suele causar sequías en el altiplano sur peruano. Pueden ocurrir juntos o por separado.</p>
       </details>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="row"><h2 style="margin:0">Calentamiento del mar en el Pacífico tropical</h2><span class="pill" id="sstMapDate">—</span></div>
+      <p class="sub">Anomalía diaria de la temperatura superficial del mar (°C), satélite + boyas, NOAA OISST v2.1. Los recuadros son las regiones que vigila el ENFEN.</p>
+      <div style="position:relative;width:100%;aspect-ratio:900/400;background:var(--surface2);border-radius:10px;overflow:hidden">
+        <canvas id="sstMap" width="900" height="400" style="width:100%;height:100%;display:block"></canvas>
+        <div id="sstMapMsg" class="loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">Descargando el mapa de la NOAA…</div>
+      </div>
+      <div class="row" style="margin-top:8px;gap:6px">
+        <span class="small">−5 °C</span>
+        <div id="sstBar" style="flex:1;height:12px;border-radius:6px;min-width:160px"></div>
+        <span class="small">+5 °C</span>
+      </div>
+      <p class="small" id="sstMapNote">Gris: tierra firme.</p>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <h2>Variación diaria: Niño 1+2 y Niño 3.4</h2>
+      <p class="sub">Anomalía promedio diaria de cada región en los últimos 90 días disponibles (NOAA OISST v2.1).</p>
+      <div class="grid g4" id="ninoIdxCards"><div class="loading">Calculando los índices…</div></div>
+      <div class="chartbox tall" style="margin-top:10px"><canvas id="cNinoIdx"></canvas></div>
+      <p class="small">Cómo leerlo: el ENFEN califica El Niño costero con el <b>ICEN</b>, que es la media móvil de 3 meses de la anomalía en Niño 1+2. Sus categorías son: débil > 0,4 °C; moderado > 1,0 °C; fuerte > 1,7 °C; extraordinario > 3,0 °C. Aquí se aplican solo como referencia a la media de 30 días. Las anomalías se calculan respecto de 1971–2000, por eso pueden salir algunas décimas más altas que las del ENFEN, que usa un periodo más reciente. La cifra oficial es la del comunicado.</p>
     </div>
     <div class="grid g2">
       <div class="card"><h3>Huella en tierra: anomalía de temperatura en la costa (°C)</h3><p class="sub">Promedio de los últimos 30 días disponibles, NASA POWER frente a su climatología</p><div class="chartbox"><canvas id="cCoast"></canvas></div><div id="coastNote" class="small"></div></div>
@@ -265,7 +286,8 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <tr><td>Ahora, pronóstico, ET₀, isoterma 0 °C, humedad del suelo</td><td style="text-align:left"><a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener">Open‑Meteo Forecast API</a> (modelos ECMWF, GFS, ICON y otros)</td></tr>
         <tr><td>Anomalías, franjas, climatología</td><td style="text-align:left"><a href="https://power.larc.nasa.gov/" target="_blank" rel="noopener">NASA POWER</a> (MERRA‑2 / CERES), comunidad AG</td></tr>
         <tr><td>Ríos y huaicos</td><td style="text-align:left"><a href="https://open-meteo.com/en/docs/flood-api" target="_blank" rel="noopener">GloFAS v4 — Copernicus Emergency Management Service</a></td></tr>
-        <tr><td>Mar</td><td style="text-align:left"><a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener">Open‑Meteo Marine API</a></td></tr>
+        <tr><td>Mar (litoral)</td><td style="text-align:left"><a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener">Open‑Meteo Marine API</a></td></tr>
+        <tr><td>Mapa del Pacífico, Niño 1+2 y Niño 3.4</td><td style="text-align:left"><a href="https://coastwatch.pfeg.noaa.gov/erddap/griddap/ncdcOisst21NrtAgg.graph" target="_blank" rel="noopener">NOAA NCEI OISST v2.1, versión preliminar diaria (vía ERDDAP de NOAA CoastWatch)</a>; anomalías respecto de 1971–2000</td></tr>
         <tr><td>Proyecciones</td><td style="text-align:left"><a href="https://open-meteo.com/en/docs/climate-api" target="_blank" rel="noopener">Open‑Meteo Climate API</a> — CMIP6 HighResMIP (EC‑Earth3P‑HR, MRI‑AGCM3‑2‑S, MPI‑ESM1‑2‑XR)</td></tr>
         <tr><td>Aire y UV</td><td style="text-align:left"><a href="https://open-meteo.com/en/docs/air-quality-api" target="_blank" rel="noopener">CAMS — Copernicus Atmosphere Monitoring Service</a></td></tr>
         <tr><td>El Niño (estado oficial)</td><td style="text-align:left"><a href="https://enfen.imarpe.gob.pe/" target="_blank" rel="noopener">ENFEN</a> · <a href="https://www.senamhi.gob.pe/" target="_blank" rel="noopener">SENAMHI</a> · <a href="https://www.imarpe.gob.pe/" target="_blank" rel="noopener">IMARPE</a></td></tr>
@@ -274,7 +296,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
     </div>
   </section>
 </main>
-<footer><b>Versión 7</b> · Clima Vivo Perú · aplicativo académico de N. Fabián Huaranga · Ingeniería Agrícola, UNALM · Datos abiertos de NASA, Copernicus/ECMWF, Open‑Meteo (CC BY 4.0) y ENFEN.</footer>
+<footer><b>Versión 8</b> · Clima Vivo Perú · aplicativo académico de N. Fabián Huaranga · Ingeniería Agrícola, UNALM · Datos abiertos de NASA, Copernicus/ECMWF, Open‑Meteo (CC BY 4.0) y ENFEN.</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -554,8 +576,74 @@ async function renderAgua(){
 }
 
 /* ---------- NIÑO ---------- */
+/* ---------- Pacífico tropical: NOAA OISST v2.1 (ERDDAP) ---------- */
+const ERD='https://coastwatch.pfeg.noaa.gov/erddap/griddap/ncdcOisst21NrtAgg';
+const ERD_PAGE='https://coastwatch.pfeg.noaa.gov/erddap/griddap/ncdcOisst21NrtAgg.graph';
+const MAP_BOX={lat0:-25,lat1:25,lon0:150,lon1:285};
+const REGIONS={n12:{name:'Niño 1+2',lat:[-10,0],lon:[270,280],stride:4}, n34:{name:'Niño 3.4',lat:[-5,5],lon:[190,240],stride:8}};
+const enc=s=>s.replace(/\[/g,'%5B').replace(/\]/g,'%5D');
+const loadSstMap=()=>memoGlobal('oisst:map',()=>getJSON(enc(`${ERD}.json?anom[(last)][(0.0)][(${MAP_BOX.lat0}):3:(${MAP_BOX.lat1})][(${MAP_BOX.lon0}):3:(${MAP_BOX.lon1})]`),90000));
+const loadRegion=k=>memoGlobal('oisst:'+k,()=>{ const r=REGIONS[k]; return getJSON(enc(`${ERD}.json?anom[last-89:1:last][(0.0)][(${r.lat[0]}):${r.stride}:(${r.lat[1]})][(${r.lon[0]}):${r.stride}:(${r.lon[1]})]`),90000); });
+function erdRows(j){ const t=j.table, c=t.columnNames; const it=c.indexOf('time'), ia=c.indexOf('latitude'), io=c.indexOf('longitude'), iv=c.indexOf('anom');
+  return t.rows.map(r=>({t:r[it], lat:r[ia], lon:r[io], v:(r[iv]==null||r[iv]<=-9)?null:r[iv]})); }
+const SST_DIV=['#053061','#2166ac','#4393c3','#92c5de','#d1e5f0','#f7f7f7','#fddbc7','#f4a582','#d6604d','#b2182b','#67001f'];
+function sstColor(v){ const t=Math.max(-1,Math.min(1,v/5)); const i=(t+1)/2*(SST_DIV.length-1); const lo=Math.floor(i), hi=Math.ceil(i), f=i-lo;
+  const h=s=>[1,3,5].map(k=>parseInt(s.slice(k,k+2),16)); const a=h(SST_DIV[lo]), b=h(SST_DIV[hi]); return `rgb(${a.map((x,j)=>Math.round(x+(b[j]-x)*f)).join(',')})`; }
+const lonLabel=l=>{ const e=l>180?l-360:l; return e===0?'0°':e===180||e===-180?'180°':e>0?`${e}°E`:`${-e}°W`; };
+async function renderSstMap(){
+  $('#sstBar').style.background=`linear-gradient(90deg,${SST_DIV.join(',')})`;
+  const cv=$('#sstMap'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height, msg=$('#sstMapMsg');
+  let rows; try{ rows=erdRows(await loadSstMap()); }catch(e){
+    msg.innerHTML=`<div style="text-align:center;padding:10px"><div class="err">La NOAA no respondió (${e.message}).</div><a href="${ERD_PAGE}" target="_blank" rel="noopener">Ver el mapa directamente en NOAA ERDDAP</a></div>`;
+    state.loaded.nino=false; throw e; }
+  const X=lon=>(lon-MAP_BOX.lon0)/(MAP_BOX.lon1-MAP_BOX.lon0)*W, Y=lat=>(MAP_BOX.lat1-lat)/(MAP_BOX.lat1-MAP_BOX.lat0)*H;
+  const lats=[...new Set(rows.map(r=>r.lat))].sort((a,b)=>a-b), lons=[...new Set(rows.map(r=>r.lon))].sort((a,b)=>a-b);
+  const dlat=lats.length>1?lats[1]-lats[0]:1, dlon=lons.length>1?lons[1]-lons[0]:1;
+  ctx.fillStyle='#b9b4a8'; ctx.fillRect(0,0,W,H);           // tierra (gris)
+  rows.forEach(r=>{ if(r.v==null) return; ctx.fillStyle=sstColor(r.v);
+    ctx.fillRect(Math.floor(X(r.lon-dlon/2)),Math.floor(Y(r.lat+dlat/2)),Math.ceil(dlon/(MAP_BOX.lon1-MAP_BOX.lon0)*W)+1,Math.ceil(dlat/(MAP_BOX.lat1-MAP_BOX.lat0)*H)+1); });
+  // cuadrícula y rótulos
+  ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.lineWidth=1; ctx.font='12px Inter, sans-serif'; ctx.fillStyle='#1d2321';
+  for(let l=165;l<=285;l+=15){ const x=X(l); ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); ctx.fillText(lonLabel(l),x+3,H-6); }
+  for(let a=-20;a<=20;a+=10){ const y=Y(a); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); ctx.fillText(a===0?'0°':a>0?`${a}°N`:`${-a}°S`,4,y-4); }
+  // regiones del ENFEN
+  ctx.strokeStyle='#111'; ctx.lineWidth=2.5; ctx.font='bold 13px Inter, sans-serif';
+  Object.values(REGIONS).forEach(r=>{ const x0=X(r.lon[0]), x1=X(r.lon[1]), y0=Y(r.lat[1]), y1=Y(r.lat[0]);
+    ctx.strokeRect(x0,y0,x1-x0,y1-y0); ctx.fillStyle='rgba(255,255,255,.85)'; const tw=ctx.measureText(r.name).width; ctx.fillRect(x0,y0-18,tw+8,17); ctx.fillStyle='#111'; ctx.fillText(r.name,x0+4,y0-5); });
+  msg.style.display='none';
+  const day=rows[0]&&rows[0].t?rows[0].t.slice(0,10):null;
+  $('#sstMapDate').textContent= day? `Día ${fmtDay(day)} ${day.slice(0,4)}` : '—';
+  const vmax=Math.max(...rows.filter(r=>r.v!=null&&r.lon>=270).map(r=>r.v));
+  $('#sstMapNote').innerHTML=`Gris: tierra firme. Anomalía máxima frente a Sudamérica (al este de 90°W): <b>${sgn(vmax)} °C</b>. Resolución de la figura: 0,75°. <a href="${ERD_PAGE}" target="_blank" rel="noopener">Datos en NOAA ERDDAP</a>.`;
+}
+function regionSeries(rows){
+  const byT={}; rows.forEach(r=>{ if(r.v==null) return; const w=Math.cos(r.lat*Math.PI/180); (byT[r.t]=byT[r.t]||{s:0,w:0}); byT[r.t].s+=r.v*w; byT[r.t].w+=w; });
+  return Object.keys(byT).sort().map(t=>[t.slice(0,10), byT[t].s/byT[t].w]);
+}
+const catICEN=v=> v>3?'extraordinario':v>1.7?'fuerte':v>1.0?'moderado':v>0.4?'débil':v>=-1.0? (v<-0.4?'La Niña débil':'neutro') : v>=-1.4?'La Niña moderada':'La Niña fuerte';
+const catONI=v=> v>=2?'muy fuerte':v>=1.5?'fuerte':v>=1.0?'moderado':v>=0.5?'débil':v>-0.5?'neutro':'La Niña';
+async function renderNinoIdx(){
+  const cards=$('#ninoIdxCards');
+  let s12,s34; try{ const [a,b]=await Promise.all([loadRegion('n12'),loadRegion('n34')]); s12=regionSeries(erdRows(a)); s34=regionSeries(erdRows(b)); }
+  catch(e){ cards.innerHTML=`<div class="err">La NOAA no respondió (${e.message}). <a href="${ERD_PAGE}" target="_blank" rel="noopener">Abrir NOAA ERDDAP</a></div>`; state.loaded.nino=false; throw e; }
+  const last=s=>s[s.length-1], m30=s=>mean(s.slice(-30).map(x=>x[1]));
+  const st=(lab,val,note)=>`<div class="stat"><div class="lab">${lab}</div><div class="val">${val}<small> °C</small></div><div class="note">${note}</div></div>`;
+  cards.innerHTML=
+    st(`Niño 1+2 · ${fmtDay(last(s12)[0])}`, sgn(last(s12)[1]), 'Frente a Perú y Ecuador (0°–10°S, 90°–80°W)')+
+    st('Niño 1+2 · media de 30 días', sgn(m30(s12)), `Equivale a la categoría «${catICEN(m30(s12))}» (referencial)`)+
+    st(`Niño 3.4 · ${fmtDay(last(s34)[0])}`, sgn(last(s34)[1]), 'Pacífico central (5°N–5°S, 170°–120°W)')+
+    st('Niño 3.4 · media de 30 días', sgn(m30(s34)), `Equivale a la categoría «${catONI(m30(s34))}» (referencial)`);
+  const dates=[...new Set([...s12.map(x=>x[0]),...s34.map(x=>x[0])])].sort();
+  const m12=Object.fromEntries(s12), m34=Object.fromEntries(s34);
+  chart('cNinoIdx',{type:'line',data:{labels:dates.map(fmtDay),datasets:[
+    {label:'Niño 1+2 (costa peruana)',data:dates.map(d=>m12[d]!=null?+m12[d].toFixed(2):null),borderColor:css('--s2'),backgroundColor:css('--s2')},
+    {label:'Niño 3.4 (Pacífico central)',data:dates.map(d=>m34[d]!=null?+m34[d].toFixed(2):null),borderColor:css('--s1'),backgroundColor:css('--s1')}]},
+    options:{scales:{y:{title:{display:true,text:'Anomalía (°C)'}},x:{ticks:{maxTicksLimit:10}}}}});
+}
+
 async function renderNino(){
   if(state.loaded.nino) return; state.loaded.nino=true;
+  renderSstMap().catch(()=>{}); renderNinoIdx().catch(()=>{});
   $('#coastNote').textContent='Consultando NASA POWER para 7 ciudades…';
   try{
     const res=await Promise.all(COAST.map(async ([n,la,lo])=>{ const [dl,cl]=await Promise.all([powerDaily(la,lo,30),powerClim(la,lo)]); const s=anomalySeries(dl,cl); return [n, mean(s.map(r=>r.tmax-r.ntmax)), mean(s.map(r=>r.tmin-r.ntmin)), s.length? s[s.length-1].date:null]; }));
@@ -730,7 +818,7 @@ function buildPresets(){
 }
 async function saveOffline(){
   const tasks=[()=>loadForecast(),()=>loadAir(),()=>loadFloodFc(),()=>loadFloodHist(),()=>powerClim(state.lat,state.lon),()=>powerDaily(state.lat,state.lon,60),()=>powerMonthly(),()=>loadClimate(),
-    ...SEA.map(p=>()=>loadSea(p)), ...COAST.flatMap(([n,la,lo])=>[()=>powerDaily(la,lo,30),()=>powerClim(la,lo)])];
+    ...SEA.map(p=>()=>loadSea(p)), ()=>loadSstMap(), ()=>loadRegion('n12'), ()=>loadRegion('n34'), ...COAST.flatMap(([n,la,lo])=>[()=>powerDaily(la,lo,30),()=>powerClim(la,lo)])];
   let done=0, okN=0; const btn=$('#btnSave'); btn.disabled=true;
   info(`⏳ Guardando ${state.name}… 0/${tasks.length}`);
   await Promise.all(tasks.map(t=>t().then(()=>okN++).catch(()=>{}).finally(()=>{ done++; info(`⏳ Guardando ${state.name}… ${done}/${tasks.length}`); })));
