@@ -296,7 +296,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
     </div>
   </section>
 </main>
-<footer><b>Versión 8</b> · Clima Vivo Perú · aplicativo académico de N. Fabián Huaranga · Ingeniería Agrícola, UNALM · Datos abiertos de NASA, Copernicus/ECMWF, Open‑Meteo (CC BY 4.0) y ENFEN.</footer>
+<footer><b>Versión 9</b> · Clima Vivo Perú · aplicativo académico de N. Fabián Huaranga · Ingeniería Agrícola, UNALM · Datos abiertos de NASA, Copernicus/ECMWF, Open‑Meteo (CC BY 4.0) y ENFEN.</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -582,50 +582,62 @@ const ERD_PAGE='https://coastwatch.pfeg.noaa.gov/erddap/griddap/ncdcOisst21NrtAg
 const MAP_BOX={lat0:-25,lat1:25,lon0:150,lon1:285};
 const REGIONS={n12:{name:'Niño 1+2',lat:[-10,0],lon:[270,280],stride:4}, n34:{name:'Niño 3.4',lat:[-5,5],lon:[190,240],stride:8}};
 const enc=s=>s.replace(/\[/g,'%5B').replace(/\]/g,'%5D');
-const loadSstMap=()=>memoGlobal('oisst:map',()=>getJSON(enc(`${ERD}.json?anom[(last)][(0.0)][(${MAP_BOX.lat0}):3:(${MAP_BOX.lat1})][(${MAP_BOX.lon0}):3:(${MAP_BOX.lon1})]`),90000));
-const loadRegion=k=>memoGlobal('oisst:'+k,()=>{ const r=REGIONS[k]; return getJSON(enc(`${ERD}.json?anom[last-89:1:last][(0.0)][(${r.lat[0]}):${r.stride}:(${r.lat[1]})][(${r.lon[0]}):${r.stride}:(${r.lon[1]})]`),90000); });
+/* Los datos de la NOAA los descarga cada mañana una tarea de GitHub (scripts/update_oisst.py),
+   porque el servidor de la NOAA no permite que el navegador los lea directamente. */
+function repoRawURL(){
+  const m=location.hostname.match(/^([^.]+)\.github\.io$/i), repo=location.pathname.split('/').filter(Boolean)[0];
+  const user=m?m[1]:'Fabian2h', r=(m&&repo&&!/\.html?$/.test(repo))?repo:'clima-vivo-peru';
+  return `https://raw.githubusercontent.com/${user}/${r}/main/data/oisst.json`;
+}
+const loadOisst=()=>memoGlobal('oisst',()=>getJSON(repoRawURL(),20000).catch(()=>getJSON('data/oisst.json',20000)));
+const MAP_IMG=`${ERD}.largePng?`+enc(`anom[(last)][(0.0)][(${MAP_BOX.lat0}):(${MAP_BOX.lat1})][(${MAP_BOX.lon0}):(${MAP_BOX.lon1})]`)+'&.draw=surface&.vars=longitude%7Clatitude%7Canom&.colorBar=BlueWhiteRed%7CC%7CLinear%7C-5%7C5%7C10&.land=over';
 function erdRows(j){ const t=j.table, c=t.columnNames; const it=c.indexOf('time'), ia=c.indexOf('latitude'), io=c.indexOf('longitude'), iv=c.indexOf('anom');
   return t.rows.map(r=>({t:r[it], lat:r[ia], lon:r[io], v:(r[iv]==null||r[iv]<=-9)?null:r[iv]})); }
 const SST_DIV=['#053061','#2166ac','#4393c3','#92c5de','#d1e5f0','#f7f7f7','#fddbc7','#f4a582','#d6604d','#b2182b','#67001f'];
 function sstColor(v){ const t=Math.max(-1,Math.min(1,v/5)); const i=(t+1)/2*(SST_DIV.length-1); const lo=Math.floor(i), hi=Math.ceil(i), f=i-lo;
   const h=s=>[1,3,5].map(k=>parseInt(s.slice(k,k+2),16)); const a=h(SST_DIV[lo]), b=h(SST_DIV[hi]); return `rgb(${a.map((x,j)=>Math.round(x+(b[j]-x)*f)).join(',')})`; }
 const lonLabel=l=>{ const e=l>180?l-360:l; return e===0?'0°':e===180||e===-180?'180°':e>0?`${e}°E`:`${-e}°W`; };
-async function renderSstMap(){
+function showMapImage(note){
+  const box=$('#sstMap').parentElement, msg=$('#sstMapMsg');
+  $('#sstMap').style.display='none'; box.style.aspectRatio='auto'; box.style.background='#fff';
+  msg.style.position='static'; msg.style.display='block';
+  msg.innerHTML=`<img src="${MAP_IMG}" alt="Mapa de anomalía de la temperatura del mar, NOAA ERDDAP" style="width:100%;display:block" onerror="this.outerHTML='<div class=err style=padding:12px>La NOAA no entregó la imagen. <a href=${ERD_PAGE} target=_blank rel=noopener>Abrir NOAA ERDDAP</a></div>'">`;
+  $('#sstBar').parentElement.style.display='none';
+  $('#sstMapDate').textContent='Último día disponible';
+  $('#sstMapNote').innerHTML=note;
+}
+function drawSstMap(m){
   $('#sstBar').style.background=`linear-gradient(90deg,${SST_DIV.join(',')})`;
-  const cv=$('#sstMap'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height, msg=$('#sstMapMsg');
-  let rows; try{ rows=erdRows(await loadSstMap()); }catch(e){
-    msg.innerHTML=`<div style="text-align:center;padding:10px"><div class="err">La NOAA no respondió (${e.message}).</div><a href="${ERD_PAGE}" target="_blank" rel="noopener">Ver el mapa directamente en NOAA ERDDAP</a></div>`;
-    state.loaded.nino=false; throw e; }
+  const cv=$('#sstMap'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
   const X=lon=>(lon-MAP_BOX.lon0)/(MAP_BOX.lon1-MAP_BOX.lon0)*W, Y=lat=>(MAP_BOX.lat1-lat)/(MAP_BOX.lat1-MAP_BOX.lat0)*H;
-  const lats=[...new Set(rows.map(r=>r.lat))].sort((a,b)=>a-b), lons=[...new Set(rows.map(r=>r.lon))].sort((a,b)=>a-b);
-  const dlat=lats.length>1?lats[1]-lats[0]:1, dlon=lons.length>1?lons[1]-lons[0]:1;
-  ctx.fillStyle='#b9b4a8'; ctx.fillRect(0,0,W,H);           // tierra (gris)
-  rows.forEach(r=>{ if(r.v==null) return; ctx.fillStyle=sstColor(r.v);
-    ctx.fillRect(Math.floor(X(r.lon-dlon/2)),Math.floor(Y(r.lat+dlat/2)),Math.ceil(dlon/(MAP_BOX.lon1-MAP_BOX.lon0)*W)+1,Math.ceil(dlat/(MAP_BOX.lat1-MAP_BOX.lat0)*H)+1); });
-  // cuadrícula y rótulos
+  const dlat=m.lats.length>1?m.lats[1]-m.lats[0]:1, dlon=m.lons.length>1?m.lons[1]-m.lons[0]:1;
+  const cw=Math.ceil(dlon/(MAP_BOX.lon1-MAP_BOX.lon0)*W)+1, ch=Math.ceil(dlat/(MAP_BOX.lat1-MAP_BOX.lat0)*H)+1;
+  ctx.fillStyle='#b9b4a8'; ctx.fillRect(0,0,W,H);
+  let vmax=-99;
+  m.lats.forEach((la,i)=>m.lons.forEach((lo,j)=>{ const v=m.v[i][j]; if(v==null) return; if(lo>=270&&v>vmax) vmax=v;
+    ctx.fillStyle=sstColor(v); ctx.fillRect(Math.floor(X(lo-dlon/2)),Math.floor(Y(la+dlat/2)),cw,ch); }));
   ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.lineWidth=1; ctx.font='12px Inter, sans-serif'; ctx.fillStyle='#1d2321';
   for(let l=165;l<=285;l+=15){ const x=X(l); ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); ctx.fillText(lonLabel(l),x+3,H-6); }
   for(let a=-20;a<=20;a+=10){ const y=Y(a); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); ctx.fillText(a===0?'0°':a>0?`${a}°N`:`${-a}°S`,4,y-4); }
-  // regiones del ENFEN
   ctx.strokeStyle='#111'; ctx.lineWidth=2.5; ctx.font='bold 13px Inter, sans-serif';
   Object.values(REGIONS).forEach(r=>{ const x0=X(r.lon[0]), x1=X(r.lon[1]), y0=Y(r.lat[1]), y1=Y(r.lat[0]);
     ctx.strokeRect(x0,y0,x1-x0,y1-y0); ctx.fillStyle='rgba(255,255,255,.85)'; const tw=ctx.measureText(r.name).width; ctx.fillRect(x0,y0-18,tw+8,17); ctx.fillStyle='#111'; ctx.fillText(r.name,x0+4,y0-5); });
-  msg.style.display='none';
-  const day=rows[0]&&rows[0].t?rows[0].t.slice(0,10):null;
-  $('#sstMapDate').textContent= day? `Día ${fmtDay(day)} ${day.slice(0,4)}` : '—';
-  const vmax=Math.max(...rows.filter(r=>r.v!=null&&r.lon>=270).map(r=>r.v));
-  $('#sstMapNote').innerHTML=`Gris: tierra firme. Anomalía máxima frente a Sudamérica (al este de 90°W): <b>${sgn(vmax)} °C</b>. Resolución de la figura: 0,75°. <a href="${ERD_PAGE}" target="_blank" rel="noopener">Datos en NOAA ERDDAP</a>.`;
+  $('#sstMapMsg').style.display='none';
+  $('#sstMapDate').textContent=`Día ${fmtDay(m.date)} ${m.date.slice(0,4)}`;
+  $('#sstMapNote').innerHTML=`Gris: tierra firme. Anomalía máxima frente a Sudamérica (al este de 90°W): <b>${sgn(vmax)} °C</b>. <a href="${ERD_PAGE}" target="_blank" rel="noopener">Datos en NOAA ERDDAP</a>.`;
 }
-function regionSeries(rows){
-  const byT={}; rows.forEach(r=>{ if(r.v==null) return; const w=Math.cos(r.lat*Math.PI/180); (byT[r.t]=byT[r.t]||{s:0,w:0}); byT[r.t].s+=r.v*w; byT[r.t].w+=w; });
-  return Object.keys(byT).sort().map(t=>[t.slice(0,10), byT[t].s/byT[t].w]);
+async function renderSstMap(){
+  let d; try{ d=await loadOisst(); }catch(e){ d=null; }
+  if(d&&d.map&&d.map.v) drawSstMap(d.map);
+  else showMapImage(`Imagen generada directamente por <a href="${ERD_PAGE}" target="_blank" rel="noopener">NOAA ERDDAP</a> (anomalía en °C, escala de −5 a +5). Cuando esté activa la tarea diaria de GitHub, el mapa se dibujará aquí con los recuadros del ENFEN.`);
 }
 const catICEN=v=> v>3?'extraordinario':v>1.7?'fuerte':v>1.0?'moderado':v>0.4?'débil':v>=-1.0? (v<-0.4?'La Niña débil':'neutro') : v>=-1.4?'La Niña moderada':'La Niña fuerte';
 const catONI=v=> v>=2?'muy fuerte':v>=1.5?'fuerte':v>=1.0?'moderado':v>=0.5?'débil':v>-0.5?'neutro':'La Niña';
 async function renderNinoIdx(){
   const cards=$('#ninoIdxCards');
-  let s12,s34; try{ const [a,b]=await Promise.all([loadRegion('n12'),loadRegion('n34')]); s12=regionSeries(erdRows(a)); s34=regionSeries(erdRows(b)); }
-  catch(e){ cards.innerHTML=`<div class="err">La NOAA no respondió (${e.message}). <a href="${ERD_PAGE}" target="_blank" rel="noopener">Abrir NOAA ERDDAP</a></div>`; state.loaded.nino=false; throw e; }
+  let d; try{ d=await loadOisst(); }catch(e){ d=null; }
+  if(!d||!d.n12||!d.n34){ cards.innerHTML=`<div class="small" style="grid-column:1/-1">⏳ Los índices diarios todavía no están disponibles. Los calcula cada mañana la tarea automática del repositorio («Actualizar datos del mar»); si recién la activaste, espera a que termine su primera ejecución. Mientras tanto: <a href="${ERD_PAGE}" target="_blank" rel="noopener">NOAA ERDDAP</a>.</div>`; return; }
+  const s12=d.n12.series, s34=d.n34.series;
   const last=s=>s[s.length-1], m30=s=>mean(s.slice(-30).map(x=>x[1]));
   const st=(lab,val,note)=>`<div class="stat"><div class="lab">${lab}</div><div class="val">${val}<small> °C</small></div><div class="note">${note}</div></div>`;
   cards.innerHTML=
@@ -636,14 +648,14 @@ async function renderNinoIdx(){
   const dates=[...new Set([...s12.map(x=>x[0]),...s34.map(x=>x[0])])].sort();
   const m12=Object.fromEntries(s12), m34=Object.fromEntries(s34);
   chart('cNinoIdx',{type:'line',data:{labels:dates.map(fmtDay),datasets:[
-    {label:'Niño 1+2 (costa peruana)',data:dates.map(d=>m12[d]!=null?+m12[d].toFixed(2):null),borderColor:css('--s2'),backgroundColor:css('--s2')},
-    {label:'Niño 3.4 (Pacífico central)',data:dates.map(d=>m34[d]!=null?+m34[d].toFixed(2):null),borderColor:css('--s1'),backgroundColor:css('--s1')}]},
+    {label:'Niño 1+2 (costa peruana)',data:dates.map(x=>m12[x]??null),borderColor:css('--s2'),backgroundColor:css('--s2')},
+    {label:'Niño 3.4 (Pacífico central)',data:dates.map(x=>m34[x]??null),borderColor:css('--s1'),backgroundColor:css('--s1')}]},
     options:{scales:{y:{title:{display:true,text:'Anomalía (°C)'}},x:{ticks:{maxTicksLimit:10}}}}});
 }
 
 async function renderNino(){
   if(state.loaded.nino) return; state.loaded.nino=true;
-  renderSstMap().catch(()=>{}); renderNinoIdx().catch(()=>{});
+  renderSstMap().catch(e=>console.error(e)); renderNinoIdx().catch(e=>{ console.error(e); $("#ninoIdxCards").innerHTML=`<div class="err">No se pudieron mostrar los índices (${e.message}).</div>`; });
   $('#coastNote').textContent='Consultando NASA POWER para 7 ciudades…';
   try{
     const res=await Promise.all(COAST.map(async ([n,la,lo])=>{ const [dl,cl]=await Promise.all([powerDaily(la,lo,30),powerClim(la,lo)]); const s=anomalySeries(dl,cl); return [n, mean(s.map(r=>r.tmax-r.ntmax)), mean(s.map(r=>r.tmin-r.ntmin)), s.length? s[s.length-1].date:null]; }));
@@ -818,7 +830,7 @@ function buildPresets(){
 }
 async function saveOffline(){
   const tasks=[()=>loadForecast(),()=>loadAir(),()=>loadFloodFc(),()=>loadFloodHist(),()=>powerClim(state.lat,state.lon),()=>powerDaily(state.lat,state.lon,60),()=>powerMonthly(),()=>loadClimate(),
-    ...SEA.map(p=>()=>loadSea(p)), ()=>loadSstMap(), ()=>loadRegion('n12'), ()=>loadRegion('n34'), ...COAST.flatMap(([n,la,lo])=>[()=>powerDaily(la,lo,30),()=>powerClim(la,lo)])];
+    ...SEA.map(p=>()=>loadSea(p)), ()=>loadOisst(), ...COAST.flatMap(([n,la,lo])=>[()=>powerDaily(la,lo,30),()=>powerClim(la,lo)])];
   let done=0, okN=0; const btn=$('#btnSave'); btn.disabled=true;
   info(`⏳ Guardando ${state.name}… 0/${tasks.length}`);
   await Promise.all(tasks.map(t=>t().then(()=>okN++).catch(()=>{}).finally(()=>{ done++; info(`⏳ Guardando ${state.name}… ${done}/${tasks.length}`); })));

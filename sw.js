@@ -2,7 +2,7 @@
    - App (HTML, íconos, librerías): se guarda al instalar y se sirve aunque no haya señal.
    - Datos climáticos (NASA POWER, Open-Meteo): primero la red; si falla, la última copia guardada.
 */
-const VERSION = 'cvp-v8';
+const VERSION = 'cvp-v9';
 const SHELL = `${VERSION}-shell`;
 const DATA = `${VERSION}-data`;
 const SHELL_FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
@@ -11,7 +11,7 @@ const CDN_FILES = [
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'
 ];
-const DATA_HOSTS = ['open-meteo.com', 'power.larc.nasa.gov', 'coastwatch.pfeg.noaa.gov'];
+const DATA_HOSTS = ['open-meteo.com', 'power.larc.nasa.gov', 'coastwatch.pfeg.noaa.gov', 'raw.githubusercontent.com'];
 const CDN_HOSTS = ['cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com', 'unpkg.com'];
 const DATE_PARAMS = ['start', 'end', 'start_date', 'end_date'];
 
